@@ -1,429 +1,231 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
-  DayResult,
-  QuestionResult,
-  dayNumber,
-  dateKey,
-  msUntilNextRound,
-  questionsForDay,
-  scoreDay,
-  shareText,
-} from "@/lib/hivemind";
+  RankedPost, UserPost, VoteMap,
+  castVote, dateDisplay, dayNumber,
+  feedForDay, loadUserPost, loadVotes,
+  msUntilReset, simulatedPostersToday,
+} from "@/lib/one";
 
-type Phase = "intro" | "self" | "predict" | "reveal" | "results";
-
-const STORAGE_KEY = "hivemind_history_v1";
-
-type History = Record<string, DayResult>;
-
-function loadHistory(): History {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveHistory(h: History) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
-}
-
-function computeStreak(history: History, today: string): number {
-  let streak = 0;
-  const d = new Date(today + "T00:00:00Z");
-  while (true) {
-    const key = d.toISOString().slice(0, 10);
-    if (history[key]) {
-      streak++;
-      d.setUTCDate(d.getUTCDate() - 1);
-    } else break;
-  }
-  return streak;
+function fmt(n: number): string {
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + "M";
+  if (n >= 1_000)     return (n / 1_000).toFixed(0) + "k";
+  return String(n);
 }
 
 function Countdown() {
   const [ms, setMs] = useState<number | null>(null);
   useEffect(() => {
-    setMs(msUntilNextRound());
-    const t = setInterval(() => setMs(msUntilNextRound()), 1000);
+    setMs(msUntilReset());
+    const t = setInterval(() => setMs(msUntilReset()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (ms === null) return <span className="font-mono-ui">--:--:--</span>;
+  if (ms === null) return <span className="font-mono">--:--:--</span>;
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
   const pad = (n: number) => String(n).padStart(2, "0");
-  return (
-    <span className="font-mono-ui tabular-nums">
-      {pad(h)}:{pad(m)}:{pad(s)}
-    </span>
-  );
+  return <span className="font-mono tabular-nums">{pad(h)}:{pad(m)}:{pad(s)}</span>;
 }
 
-function Bar({
-  label,
-  pct,
-  isMajority,
-  isSelf,
-  isPrediction,
-  delay,
-}: {
-  label: string;
-  pct: number;
-  isMajority: boolean;
-  isSelf: boolean;
-  isPrediction: boolean;
-  delay: number;
-}) {
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => setWidth(pct), 120 + delay);
-    return () => clearTimeout(t);
-  }, [pct, delay]);
-
-  return (
-    <div className="mb-3">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-semibold">{label}</span>
-          {isMajority && (
-            <span className="tag" style={{ color: "#FFE600", borderColor: "rgba(255,230,0,0.4)", background: "rgba(255,230,0,0.08)" }}>
-              THE HIVE
-            </span>
-          )}
-          {isSelf && (
-            <span className="tag" style={{ color: "#7DF9FF", borderColor: "rgba(125,249,255,0.4)", background: "rgba(125,249,255,0.07)" }}>
-              YOU
-            </span>
-          )}
-          {isPrediction && (
-            <span className="tag" style={{ color: "#FF6EC7", borderColor: "rgba(255,110,199,0.4)", background: "rgba(255,110,199,0.07)" }}>
-              YOUR CALL
-            </span>
-          )}
-        </div>
-        <span className="font-mono-ui text-sm font-bold tabular-nums" style={{ color: isMajority ? "#FFE600" : "rgba(255,255,255,0.5)" }}>
-          {pct}%
-        </span>
-      </div>
-      <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-        <div
-          className="h-full rounded-full transition-all duration-700 ease-out"
-          style={{
-            width: `${width}%`,
-            background: isMajority
-              ? "linear-gradient(90deg, #FFE600, #FFB800)"
-              : "rgba(255,255,255,0.22)",
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-export default function Hivemind() {
-  const [phase, setPhase] = useState<Phase>("intro");
-  const [qIndex, setQIndex] = useState(0);
-  const [selfAnswers, setSelfAnswers] = useState<number[]>([]);
-  const [predictions, setPredictions] = useState<number[]>([]);
-  const [result, setResult] = useState<DayResult | null>(null);
-  const [streak, setStreak] = useState(0);
-  const [copied, setCopied] = useState(false);
+export default function Feed() {
   const [ready, setReady] = useState(false);
+  const [day, setDay] = useState(0);
+  const [date, setDate] = useState("");
+  const [feed, setFeed] = useState<RankedPost[]>([]);
+  const [userPost, setUserPost] = useState<UserPost | null>(null);
+  const [votes, setVotes] = useState<VoteMap>({});
+  const [postersToday, setPostersToday] = useState("");
 
-  const day = useMemo(() => dayNumber(), []);
-  const today = useMemo(() => dateKey(), []);
-  const round = useMemo(() => questionsForDay(day), [day]);
-
-  // On load: if already played today, jump straight to results.
   useEffect(() => {
-    const history = loadHistory();
-    setStreak(computeStreak(history, today));
-    if (history[today]) {
-      setResult(history[today]);
-      setPhase("results");
-    }
+    const d = dayNumber();
+    setDay(d);
+    setDate(dateDisplay());
+    setFeed(feedForDay(d));
+    setUserPost(loadUserPost(d));
+    setVotes(loadVotes(d));
+    setPostersToday(simulatedPostersToday(d));
     setReady(true);
-  }, [today]);
+  }, []);
 
-  const finishRound = useCallback(
-    (selves: number[], preds: number[]) => {
-      const results: QuestionResult[] = round.map((r, i) => {
-        const majority = r.dist.indexOf(Math.max(...r.dist));
-        return {
-          questionId: r.question.id,
-          self: selves[i],
-          prediction: preds[i],
-          dist: r.dist,
-          majority,
-          correct: preds[i] === majority,
-        };
-      });
-      const dayResult = scoreDay(day, today, results);
-      const history = loadHistory();
-      history[today] = dayResult;
-      saveHistory(history);
-      setResult(dayResult);
-      setStreak(computeStreak(history, today));
-      setPhase("results");
-    },
-    [round, day, today],
-  );
-
-  const pickSelf = (i: number) => {
-    setSelfAnswers((a) => [...a, i]);
-    setPhase("predict");
+  const vote = (postId: string, dir: 1 | -1) => {
+    const updated = castVote(day, postId, dir);
+    setVotes({ ...updated });
   };
 
-  const pickPrediction = (i: number) => {
-    setPredictions((p) => [...p, i]);
-    setPhase("reveal");
+  const effectiveVotes = (p: RankedPost) => {
+    const v = votes[p.id];
+    return p.votes + (v === 1 ? 1 : v === -1 ? -1 : 0);
   };
-
-  const nextQuestion = () => {
-    if (qIndex + 1 >= round.length) {
-      finishRound(selfAnswers, predictions);
-    } else {
-      setQIndex((i) => i + 1);
-      setPhase("self");
-    }
-  };
-
-  const copyShare = async () => {
-    if (!result) return;
-    try {
-      await navigator.clipboard.writeText(shareText(result) + "\nhivemind.game");
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // clipboard unavailable — ignore
-    }
-  };
-
-  const current = round[qIndex];
-  const currentResult =
-    phase === "reveal"
-      ? {
-          self: selfAnswers[qIndex],
-          prediction: predictions[qIndex],
-          majority: current.dist.indexOf(Math.max(...current.dist)),
-        }
-      : null;
 
   if (!ready) return <main className="min-h-screen" />;
 
+  const userRank = userPost
+    ? feed.filter((p) => effectiveVotes(p) > (userPost.votes ?? 1)).length + 1
+    : null;
+
   return (
-    <main className="min-h-screen flex flex-col">
-      {/* Top bar */}
-      <header className="px-5 py-4 flex items-center justify-between max-w-xl mx-auto w-full">
-        <div className="flex items-center gap-2">
-          <span className="font-display text-lg font-black tracking-tight">
-            HIVE<span style={{ color: "#FFE600" }}>MIND</span>
-          </span>
-          <span className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-            #{day}
-          </span>
+    <main className="min-h-screen max-w-2xl mx-auto px-4 pb-24">
+
+      {/* ── Masthead ── */}
+      <header className="pt-10 pb-6" style={{ borderBottom: "1px solid var(--border-bright)" }}>
+        <div className="flex items-end justify-between">
+          <div>
+            <h1 className="font-serif text-5xl font-black tracking-tighter leading-none mb-1">ONE</h1>
+            <p className="font-mono text-xs" style={{ color: "var(--dim)" }}>{date}</p>
+          </div>
+          <div className="text-right">
+            <div className="flex items-center gap-1.5 justify-end mb-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#00ccff] pulse-live" />
+              <span className="font-mono text-xs" style={{ color: "#00ccff" }}>LIVE</span>
+            </div>
+            <p className="font-mono text-xs" style={{ color: "var(--faint)" }}>
+              Round #{day} · resets in <Countdown />
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-4 font-mono-ui text-xs">
-          {streak > 0 && (
-            <span style={{ color: "#FF6B35" }}>🔥 {streak}</span>
-          )}
-          <span style={{ color: "rgba(255,255,255,0.35)" }}>
-            <Countdown />
-          </span>
-        </div>
+        <p className="font-mono text-xs mt-4" style={{ color: "var(--faint)" }}>
+          {postersToday} people posted today
+        </p>
       </header>
 
-      <div className="flex-1 flex flex-col justify-center max-w-xl mx-auto w-full px-5 pb-16">
-        {/* ── INTRO ── */}
-        {phase === "intro" && (
-          <div className="fade-up text-center">
-            <p className="font-mono-ui text-xs tracking-[0.3em] mb-6" style={{ color: "#FFE600" }}>
-              ONE ROUND A DAY · THE WHOLE WORLD PLAYS THE SAME ONE
-            </p>
-            <h1 className="font-display text-5xl sm:text-6xl font-black leading-[0.95] mb-6">
-              Do you know what{" "}
-              <span style={{ color: "#FFE600" }}>everyone</span> is thinking?
-            </h1>
-            <p className="text-base leading-relaxed mb-10 max-w-md mx-auto" style={{ color: "rgba(255,255,255,0.55)" }}>
-              5 questions. First you answer for yourself. Then you predict what
-              most people said. You don&apos;t win by being right —{" "}
-              <span style={{ color: "#fff" }}>you win by reading the hive.</span>
-            </p>
-            <button onClick={() => setPhase("self")} className="btn-primary">
-              Enter the hive →
-            </button>
-            <p className="font-mono-ui text-xs mt-6" style={{ color: "rgba(255,255,255,0.3)" }}>
-              Round #{day} closes in <Countdown />
-            </p>
+      {/* ── Post CTA ── */}
+      {!userPost ? (
+        <div className="py-5 fade-up" style={{ borderBottom: "1px solid var(--border)" }}>
+          <Link
+            href="/post"
+            className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl transition-all text-sm"
+            style={{ background: "var(--surface)", border: "1px solid rgba(0,204,255,0.25)", color: "rgba(255,255,255,0.5)" }}
+          >
+            <span>What's on your mind today? You have one shot.</span>
+            <span style={{ color: "#00ccff", fontSize: "1.1rem" }}>→</span>
+          </Link>
+        </div>
+      ) : (
+        <div className="py-5 fade-up" style={{ borderBottom: "1px solid var(--border)" }}>
+          <p className="font-mono text-xs mb-3" style={{ color: "#00ccff" }}>
+            YOUR POST TODAY · #{userRank} of {postersToday}
+          </p>
+          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(0,204,255,0.05)", border: "1px solid rgba(0,204,255,0.2)", color: "rgba(255,255,255,0.8)" }}>
+            {userPost.text}
           </div>
-        )}
+          <p className="font-mono text-xs mt-2" style={{ color: "var(--faint)" }}>
+            Posted · Come back tomorrow for another shot.
+          </p>
+        </div>
+      )}
 
-        {/* ── PROGRESS DOTS ── */}
-        {(phase === "self" || phase === "predict" || phase === "reveal") && (
-          <div className="flex justify-center gap-2 mb-8">
-            {round.map((_, i) => (
-              <span
-                key={i}
-                className="w-2 h-2 rounded-full transition-all"
-                style={{
-                  background:
-                    i < qIndex
-                      ? "#FFE600"
-                      : i === qIndex
-                        ? "rgba(255,230,0,0.9)"
-                        : "rgba(255,255,255,0.12)",
-                  transform: i === qIndex ? "scale(1.4)" : "scale(1)",
-                }}
-              />
-            ))}
-          </div>
-        )}
+      {/* ── Feed header ── */}
+      <div className="py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
+        <span className="font-mono text-xs uppercase tracking-widest" style={{ color: "var(--faint)" }}>
+          Today's front page
+        </span>
+        <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
+          votes
+        </span>
+      </div>
 
-        {/* ── SELF ── */}
-        {phase === "self" && (
-          <div key={`self-${qIndex}`} className="fade-up">
-            <p className="font-mono-ui text-xs tracking-[0.25em] mb-4 text-center" style={{ color: "#7DF9FF" }}>
-              STEP 1 — YOUR ANSWER
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl font-black text-center leading-tight mb-10">
-              {current.question.text}
-            </h2>
-            <div className="space-y-3">
-              {current.question.options.map((opt, i) => (
-                <button key={i} onClick={() => pickSelf(i)} className="btn-option">
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+      {/* ── Posts ── */}
+      <div>
+        {feed.map((post, i) => {
+          const voteDir = votes[post.id];
+          const ev = effectiveVotes(post);
+          const isFirst = i === 0;
 
-        {/* ── PREDICT ── */}
-        {phase === "predict" && (
-          <div key={`predict-${qIndex}`} className="fade-up">
-            <p className="font-mono-ui text-xs tracking-[0.25em] mb-4 text-center" style={{ color: "#FF6EC7" }}>
-              STEP 2 — READ THE HIVE
-            </p>
-            <h2 className="font-display text-3xl sm:text-4xl font-black text-center leading-tight mb-3">
-              What did <span style={{ color: "#FFE600" }}>most people</span> say?
-            </h2>
-            <p className="text-center text-sm mb-10" style={{ color: "rgba(255,255,255,0.45)" }}>
-              &ldquo;{current.question.text}&rdquo;
-            </p>
-            <div className="space-y-3">
-              {current.question.options.map((opt, i) => (
-                <button key={i} onClick={() => pickPrediction(i)} className="btn-option btn-option-pink">
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* ── REVEAL ── */}
-        {phase === "reveal" && currentResult && (
-          <div key={`reveal-${qIndex}`} className="fade-up">
-            <p
-              className="font-display text-4xl font-black text-center mb-2"
-              style={{ color: currentResult.prediction === currentResult.majority ? "#FFE600" : "rgba(255,255,255,0.4)" }}
+          return (
+            <article
+              key={post.id}
+              className="py-6 fade-up"
+              style={{
+                borderBottom: "1px solid var(--border)",
+                animationDelay: `${i * 0.03}s`,
+              }}
             >
-              {currentResult.prediction === currentResult.majority ? "YOU READ THE HIVE" : "THE HIVE WENT ELSEWHERE"}
-            </p>
-            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.45)" }}>
-              &ldquo;{current.question.text}&rdquo;
-            </p>
-            <div className="card p-5 mb-4">
-              {current.question.options.map((opt, i) => (
-                <Bar
-                  key={i}
-                  label={opt}
-                  pct={current.dist[i]}
-                  isMajority={i === currentResult.majority}
-                  isSelf={i === currentResult.self}
-                  isPrediction={i === currentResult.prediction}
-                  delay={i * 150}
-                />
-              ))}
-            </div>
-            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.5)" }}>
-              {current.dist[currentResult.self] >= 50
-                ? `${current.dist[currentResult.self]}% of the hive thinks like you.`
-                : `Only ${current.dist[currentResult.self]}% of the hive agrees with you. Interesting.`}
-            </p>
-            <button onClick={nextQuestion} className="btn-primary w-full">
-              {qIndex + 1 >= round.length ? "See who you are →" : "Next →"}
-            </button>
-          </div>
-        )}
+              <div className="flex gap-4">
+                {/* Rank */}
+                <div className="shrink-0 w-7 text-right pt-0.5">
+                  <span
+                    className="font-mono text-sm"
+                    style={{ color: isFirst ? "var(--gold)" : "var(--faint)", fontWeight: isFirst ? 700 : 400 }}
+                  >
+                    {post.rank}
+                  </span>
+                </div>
 
-        {/* ── RESULTS ── */}
-        {phase === "results" && result && (
-          <div className="fade-up text-center">
-            <p className="font-mono-ui text-xs tracking-[0.3em] mb-5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              HIVEMIND #{result.day} — YOUR READING
-            </p>
-            <div className="text-6xl mb-3">{result.persona.emoji}</div>
-            <h2 className="font-display text-4xl sm:text-5xl font-black mb-3" style={{ color: "#FFE600" }}>
-              {result.persona.name}
-            </h2>
-            <p className="text-base max-w-md mx-auto mb-10 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-              {result.persona.line}
-            </p>
-
-            <div className="grid grid-cols-2 gap-3 mb-8">
-              <div className="card p-5">
-                <p className="font-display text-4xl font-black mb-1">🧠 {result.read}/5</p>
-                <p className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  MIND READ
-                </p>
-              </div>
-              <div className="card p-5">
-                <p className="font-display text-4xl font-black mb-1">⚡ {result.sync}%</p>
-                <p className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  HIVE SYNC
-                </p>
-              </div>
-            </div>
-
-            <div className="card p-5 mb-8 text-left">
-              <p className="font-mono-ui text-xs mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
-                YOUR ROUND
-              </p>
-              {result.results.map((r, i) => {
-                const q = round.find((x) => x.question.id === r.questionId)?.question;
-                return (
-                  <div key={i} className="flex items-center gap-3 py-2 text-sm" style={{ borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
-                    <span>{r.correct ? "🟡" : "⚫"}</span>
-                    <span className="flex-1 truncate" style={{ color: "rgba(255,255,255,0.6)" }}>
-                      {q?.text}
+                {/* Content */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+                    <span className="text-base">{post.flag}</span>
+                    <span className="text-sm font-semibold">{post.author}</span>
+                    <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
+                      @{post.handle}
                     </span>
-                    <span className="font-mono-ui text-xs shrink-0" style={{ color: r.correct ? "#FFE600" : "rgba(255,255,255,0.3)" }}>
-                      {r.correct ? "read" : "missed"}
+                    <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
+                      · {post.country}
                     </span>
+                    {isFirst && (
+                      <span
+                        className="font-mono text-xs px-2 py-0.5 rounded-full"
+                        style={{ color: "var(--gold)", background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)" }}
+                      >
+                        #1 TODAY
+                      </span>
+                    )}
                   </div>
-                );
-              })}
-            </div>
 
-            <button onClick={copyShare} className="btn-primary w-full mb-3">
-              {copied ? "Copied ✓" : "Share your reading"}
-            </button>
+                  <p
+                    className="leading-relaxed"
+                    style={{
+                      fontSize: isFirst ? "1.15rem" : "0.95rem",
+                      color: isFirst ? "#fff" : "rgba(255,255,255,0.85)",
+                      fontFamily: isFirst ? "Georgia, serif" : "inherit",
+                    }}
+                  >
+                    {post.text}
+                  </p>
+                </div>
 
-            <div className="flex items-center justify-center gap-4 font-mono-ui text-xs mt-6" style={{ color: "rgba(255,255,255,0.4)" }}>
-              {streak > 0 && <span style={{ color: "#FF6B35" }}>🔥 {streak} day streak</span>}
-              <span>
-                Next round in <Countdown />
-              </span>
-            </div>
-            <p className="font-mono-ui text-xs mt-8" style={{ color: "rgba(255,255,255,0.25)" }}>
-              One round a day. Come back tomorrow. The hive will be waiting.
-            </p>
-          </div>
-        )}
+                {/* Vote column */}
+                <div className="shrink-0 flex flex-col items-center gap-1.5 pt-0.5">
+                  <button
+                    onClick={() => vote(post.id, 1)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+                    style={{
+                      background: voteDir === 1 ? "rgba(0,204,255,0.15)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${voteDir === 1 ? "rgba(0,204,255,0.4)" : "rgba(255,255,255,0.08)"}`,
+                      color: voteDir === 1 ? "#00ccff" : "var(--faint)",
+                    }}
+                  >
+                    ▲
+                  </button>
+                  <span className="font-mono text-xs" style={{ color: voteDir === 1 ? "#00ccff" : voteDir === -1 ? "rgba(255,80,80,0.8)" : "var(--dim)" }}>
+                    {fmt(ev)}
+                  </span>
+                  <button
+                    onClick={() => vote(post.id, -1)}
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+                    style={{
+                      background: voteDir === -1 ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.04)",
+                      border: `1px solid ${voteDir === -1 ? "rgba(255,80,80,0.3)" : "rgba(255,255,255,0.08)"}`,
+                      color: voteDir === -1 ? "rgba(255,80,80,0.9)" : "var(--faint)",
+                    }}
+                  >
+                    ▼
+                  </button>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      {/* ── Footer ── */}
+      <div className="pt-8 text-center">
+        <p className="font-mono text-xs" style={{ color: "var(--faint)" }}>
+          Feed resets in <Countdown /> — come back with something worth saying
+        </p>
       </div>
     </main>
   );

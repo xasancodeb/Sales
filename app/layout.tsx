@@ -2,16 +2,12 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HIVEMIND — Do you know what everyone is thinking?",
+  title: "ONE — The planet's single feed",
   description:
-    "One round a day. 5 questions. The whole world plays the same one. You don't win by being right — you win by knowing what everyone else thinks.",
+    "Every person on Earth gets one post per day. The world votes what rises. One front page, written by humanity.",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>
