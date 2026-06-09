@@ -47,6 +47,29 @@ export function msUntilReset(now = new Date()): number {
   return next - now.getTime();
 }
 
+export function dateForDay(day: number): Date {
+  return new Date(EPOCH_UTC + (day - 1) * 86_400_000);
+}
+
+export function dateDisplayForDay(day: number): string {
+  return dateForDay(day).toLocaleDateString("en-US", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+// The winning post of any past day — page N of the Book of Days.
+// Never repeats the previous day's winner back to back.
+export function winnerForDay(day: number): RankedPost {
+  const feed = feedForDay(day);
+  if (day > 1 && feed[0].id === feedForDay(day - 1)[0].id) {
+    return feed[1];
+  }
+  return feed[0];
+}
+
 function seeded(seed: number) {
   let s = seed >>> 0;
   return () => {
@@ -55,15 +78,23 @@ function seeded(seed: number) {
   };
 }
 
-// Returns 20 posts ranked by today's jittered vote counts.
+// Returns 20 posts ranked by today's vote counts. Each day's votes are a
+// strong random factor on the baseline, so the day's winner genuinely
+// varies — the Book of Days reads like a real diary, not a rerun.
 export function feedForDay(day: number): RankedPost[] {
   const rng = seeded(day * 31337 + 7);
-  const shuffled = [...POSTS].sort(() => rng() - 0.5).slice(0, 20);
-  const ranked = shuffled
-    .map((p) => {
-      const jitter = (rng() - 0.45) * p.baseVotes * 0.35;
-      return { ...p, votes: Math.max(1, Math.round(p.baseVotes + jitter)) };
-    })
+  const pool = [...POSTS];
+  // Fisher-Yates
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const ranked = pool
+    .slice(0, 20)
+    .map((p) => ({
+      ...p,
+      votes: Math.max(1, Math.round(p.baseVotes * (0.3 + rng() * 1.4))),
+    }))
     .sort((a, b) => b.votes - a.votes)
     .map((p, i) => ({ ...p, rank: i + 1 }));
   return ranked;

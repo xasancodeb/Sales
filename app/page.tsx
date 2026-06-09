@@ -6,7 +6,7 @@ import {
   RankedPost, UserPost, VoteMap,
   castVote, dateDisplay, dayNumber,
   feedForDay, loadUserPost, loadVotes,
-  msUntilReset, simulatedPostersToday,
+  msUntilReset, simulatedPostersToday, winnerForDay,
 } from "@/lib/one";
 
 function fmt(n: number): string {
@@ -38,6 +38,8 @@ export default function Feed() {
   const [userPost, setUserPost] = useState<UserPost | null>(null);
   const [votes, setVotes] = useState<VoteMap>({});
   const [postersToday, setPostersToday] = useState("");
+  const [yesterday, setYesterday] = useState<RankedPost | null>(null);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     const d = dayNumber();
@@ -47,6 +49,7 @@ export default function Feed() {
     setUserPost(loadUserPost(d));
     setVotes(loadVotes(d));
     setPostersToday(simulatedPostersToday(d));
+    if (d > 1) setYesterday(winnerForDay(d - 1));
     setReady(true);
   }, []);
 
@@ -74,10 +77,33 @@ export default function Feed() {
         <p className="text-sm mb-1" style={{ color: "var(--dim)" }}>
           The world&apos;s shared page · {date}
         </p>
-        <p className="text-xs" style={{ color: "var(--faint)" }}>
+        <p className="text-xs mb-3" style={{ color: "var(--faint)" }}>
           {postersToday} voices today · new page in <Countdown />
         </p>
+        <nav className="flex justify-center gap-5 text-xs">
+          <Link href="/days" style={{ color: "var(--accent)" }}>Book of Days</Link>
+          <Link href="/about" style={{ color: "var(--dim)" }}>What is this?</Link>
+        </nav>
       </header>
+
+      {/* Yesterday's page */}
+      {yesterday && (
+        <Link
+          href="/days"
+          className="block mt-6 rounded-2xl px-5 py-4 transition-shadow hover:shadow-sm"
+          style={{ background: "#fff", border: "1px solid var(--border)" }}
+        >
+          <p className="text-xs mb-2" style={{ color: "var(--gold)" }}>
+            ★ Yesterday, the world chose this
+          </p>
+          <p className="font-serif text-base leading-relaxed mb-1.5">
+            {yesterday.text}
+          </p>
+          <p className="text-xs" style={{ color: "var(--faint)" }}>
+            {yesterday.flag} {yesterday.author} · {yesterday.country} · now page {day - 1} of the Book of Days
+          </p>
+        </Link>
+      )}
 
       {/* Your post / write */}
       <div className="py-8" style={{ borderBottom: "1px solid var(--border)" }}>
@@ -87,9 +113,25 @@ export default function Feed() {
             style={{ background: "#fff", border: "1px solid var(--border)" }}
           >
             <p className="text-base leading-relaxed mb-1.5">{userPost.text}</p>
-            <p className="text-xs" style={{ color: "var(--accent)" }}>
-              your voice today · #{userRank} of {postersToday}
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs" style={{ color: "var(--accent)" }}>
+                your voice today · #{userRank} of {postersToday}
+              </p>
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(
+                    `"${userPost.text}"\n\n— my one post today, on the world's shared page · one.earth day ${day}`,
+                  ).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1800);
+                  }).catch(() => {});
+                }}
+                className="text-xs"
+                style={{ color: copied ? "var(--gold)" : "var(--faint)" }}
+              >
+                {copied ? "copied ✓" : "share"}
+              </button>
+            </div>
           </div>
         ) : (
           <Link
