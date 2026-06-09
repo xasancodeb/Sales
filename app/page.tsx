@@ -1,436 +1,430 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  DayResult,
+  QuestionResult,
+  dayNumber,
+  dateKey,
+  msUntilNextRound,
+  questionsForDay,
+  scoreDay,
+  shareText,
+} from "@/lib/hivemind";
 
-const LIVE_FEED = [
-  { text: "Scanning 4,192 companies for active buying signals…", kind: "scan" },
-  { text: "High-intent signal: Meridian Labs posted a React contractor role 3 days ago", kind: "find" },
-  { text: "Generating pitch for Sasha Romero, Head of Product — $9,600 opportunity", kind: "write" },
-  { text: "$9,600 project locked. Pitch delivered in 7 seconds.", kind: "done" },
-  { text: "Analyzing partnership landscape for B2B SaaS founders…", kind: "scan" },
-  { text: "Summit Accounting — 240 SMB clients, no referral partner. High leverage.", kind: "find" },
-  { text: "Revenue-share proposal drafted for Ben Hartley, Managing Director", kind: "write" },
-  { text: "Content play found: Growth Engine Podcast — $4,500/episode sponsorship open", kind: "find" },
-  { text: "Automation opportunity at Prescott Law — $18k, budget approved", kind: "find" },
-  { text: "Drafting pitch for Catherine Fox, Managing Partner…", kind: "write" },
-  { text: "3 high-intent signals detected in fintech sector this hour", kind: "scan" },
-  { text: "$28,000 branding project at Crestline Health — RFP posted 2 days ago", kind: "find" },
-];
+type Phase = "intro" | "self" | "predict" | "reveal" | "results";
 
-const PILLARS = [
-  {
-    tag: "01 / SCAN",
-    title: "Never miss a signal.",
-    body: "AURUM monitors millions of job posts, funding announcements, exec statements, and forum threads every day — surfacing the exact moment a company is ready to spend.",
-    color: "#FFB800",
-  },
-  {
-    tag: "02 / SCORE",
-    title: "Every opportunity ranked.",
-    body: "Each signal is scored against your skills, goals, and track record. Only the highest-probability matches reach your queue.",
-    color: "#00E5FF",
-  },
-  {
-    tag: "03 / CREATE",
-    title: "The pitch is already written.",
-    body: "AURUM generates personalized pitches, proposals, and strategies anchored to the specific signal at each company. No templates. No filler.",
-    color: "#A855F7",
-  },
-  {
-    tag: "04 / ACT",
-    title: "It moves without you.",
-    body: "Outreach sent. Follow-ups scheduled. Meetings booked. AURUM executes the full loop while you focus on delivery — or sleep.",
-    color: "#00D97E",
-  },
-  {
-    tag: "05 / COMPOUND",
-    title: "Gets smarter every day.",
-    body: "Every reply, every conversion, every outcome feeds back into your personal model. AURUM learns exactly what creates income for you and doubles down.",
-    color: "#FF6B35",
-  },
-];
+const STORAGE_KEY = "hivemind_history_v1";
 
-const COMPARISON = [
-  { label: "Opportunities scanned / day", old: "3–5 (manual)", aurum: "2,800+" },
-  { label: "Time to write a pitch", old: "35–60 minutes", aurum: "9 seconds" },
-  { label: "Follow-up consistency", old: "Often forgotten", aurum: "Never missed" },
-  { label: "Active income streams", old: "1–2 at most", aurum: "Unlimited" },
-  { label: "Works while you sleep", old: "No", aurum: "Always" },
-  { label: "Monthly cost", old: "$0 but your time", aurum: "$97" },
-];
+type History = Record<string, DayResult>;
 
-const INCOME_TYPES = [
-  { label: "Freelance projects", color: "#FFB800", ex: "$9,600 dev contract" },
-  { label: "Business deals", color: "#00E5FF", ex: "$3,200/mo referral stream" },
-  { label: "Content monetization", color: "#A855F7", ex: "$4,500/episode podcast" },
-  { label: "Automation builds", color: "#00D97E", ex: "$35,000 integration project" },
-  { label: "Market signals", color: "#FF6B35", ex: "$8,000/mo SaaS acquisition" },
-];
-
-function useAnimatedCounter(target: number, duration = 1800) {
-  const [value, setValue] = useState(0);
-  const raf = useRef<number>(0);
-  const start = useRef<number>(0);
-
-  useEffect(() => {
-    start.current = performance.now();
-    const animate = (now: number) => {
-      const elapsed = now - start.current;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setValue(Math.floor(eased * target));
-      if (progress < 1) raf.current = requestAnimationFrame(animate);
-    };
-    raf.current = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf.current);
-  }, [target, duration]);
-
-  return value;
+function loadHistory(): History {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
 }
 
-function LiveFeed() {
-  const [index, setIndex] = useState(0);
-  const [visible, setVisible] = useState(true);
+function saveHistory(h: History) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(h));
+}
 
+function computeStreak(history: History, today: string): number {
+  let streak = 0;
+  const d = new Date(today + "T00:00:00Z");
+  while (true) {
+    const key = d.toISOString().slice(0, 10);
+    if (history[key]) {
+      streak++;
+      d.setUTCDate(d.getUTCDate() - 1);
+    } else break;
+  }
+  return streak;
+}
+
+function Countdown() {
+  const [ms, setMs] = useState<number | null>(null);
   useEffect(() => {
-    const interval = setInterval(() => {
-      setVisible(false);
-      setTimeout(() => {
-        setIndex((i) => (i + 1) % LIVE_FEED.length);
-        setVisible(true);
-      }, 300);
-    }, 2800);
-    return () => clearInterval(interval);
+    setMs(msUntilNextRound());
+    const t = setInterval(() => setMs(msUntilNextRound()), 1000);
+    return () => clearInterval(t);
   }, []);
+  if (ms === null) return <span className="font-mono-ui">--:--:--</span>;
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1000);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return (
+    <span className="font-mono-ui tabular-nums">
+      {pad(h)}:{pad(m)}:{pad(s)}
+    </span>
+  );
+}
 
-  const item = LIVE_FEED[index];
-
-  const kindColor: Record<string, string> = {
-    scan: "rgba(255,255,255,0.35)",
-    find: "#FFB800",
-    write: "#00E5FF",
-    done: "#00D97E",
-  };
-
-  const kindPrefix: Record<string, string> = {
-    scan: "›",
-    find: "◆",
-    write: "✦",
-    done: "✓",
-  };
+function Bar({
+  label,
+  pct,
+  isMajority,
+  isSelf,
+  isPrediction,
+  delay,
+}: {
+  label: string;
+  pct: number;
+  isMajority: boolean;
+  isSelf: boolean;
+  isPrediction: boolean;
+  delay: number;
+}) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const t = setTimeout(() => setWidth(pct), 120 + delay);
+    return () => clearTimeout(t);
+  }, [pct, delay]);
 
   return (
-    <div
-      className="font-mono-ui text-xs flex items-start gap-2.5 transition-all duration-300"
-      style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : "translateY(6px)" }}
-    >
-      <span style={{ color: kindColor[item.kind] }} className="shrink-0 mt-0.5">
-        {kindPrefix[item.kind]}
-      </span>
-      <span style={{ color: item.kind === "done" ? "#00D97E" : "rgba(255,255,255,0.65)" }}>
-        {item.text}
-      </span>
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-semibold">{label}</span>
+          {isMajority && (
+            <span className="tag" style={{ color: "#FFE600", borderColor: "rgba(255,230,0,0.4)", background: "rgba(255,230,0,0.08)" }}>
+              THE HIVE
+            </span>
+          )}
+          {isSelf && (
+            <span className="tag" style={{ color: "#7DF9FF", borderColor: "rgba(125,249,255,0.4)", background: "rgba(125,249,255,0.07)" }}>
+              YOU
+            </span>
+          )}
+          {isPrediction && (
+            <span className="tag" style={{ color: "#FF6EC7", borderColor: "rgba(255,110,199,0.4)", background: "rgba(255,110,199,0.07)" }}>
+              YOUR CALL
+            </span>
+          )}
+        </div>
+        <span className="font-mono-ui text-sm font-bold tabular-nums" style={{ color: isMajority ? "#FFE600" : "rgba(255,255,255,0.5)" }}>
+          {pct}%
+        </span>
+      </div>
+      <div className="h-3 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-700 ease-out"
+          style={{
+            width: `${width}%`,
+            background: isMajority
+              ? "linear-gradient(90deg, #FFE600, #FFB800)"
+              : "rgba(255,255,255,0.22)",
+          }}
+        />
+      </div>
     </div>
   );
 }
 
-export default function Home() {
-  const oppCount = useAnimatedCounter(2_847_193, 2200);
-  const incomeUnlocked = useAnimatedCounter(4_200_000, 2400);
-  const agentsActive = useAnimatedCounter(2847, 1600);
+export default function Hivemind() {
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [qIndex, setQIndex] = useState(0);
+  const [selfAnswers, setSelfAnswers] = useState<number[]>([]);
+  const [predictions, setPredictions] = useState<number[]>([]);
+  const [result, setResult] = useState<DayResult | null>(null);
+  const [streak, setStreak] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  const day = useMemo(() => dayNumber(), []);
+  const today = useMemo(() => dateKey(), []);
+  const round = useMemo(() => questionsForDay(day), [day]);
+
+  // On load: if already played today, jump straight to results.
+  useEffect(() => {
+    const history = loadHistory();
+    setStreak(computeStreak(history, today));
+    if (history[today]) {
+      setResult(history[today]);
+      setPhase("results");
+    }
+    setReady(true);
+  }, [today]);
+
+  const finishRound = useCallback(
+    (selves: number[], preds: number[]) => {
+      const results: QuestionResult[] = round.map((r, i) => {
+        const majority = r.dist.indexOf(Math.max(...r.dist));
+        return {
+          questionId: r.question.id,
+          self: selves[i],
+          prediction: preds[i],
+          dist: r.dist,
+          majority,
+          correct: preds[i] === majority,
+        };
+      });
+      const dayResult = scoreDay(day, today, results);
+      const history = loadHistory();
+      history[today] = dayResult;
+      saveHistory(history);
+      setResult(dayResult);
+      setStreak(computeStreak(history, today));
+      setPhase("results");
+    },
+    [round, day, today],
+  );
+
+  const pickSelf = (i: number) => {
+    setSelfAnswers((a) => [...a, i]);
+    setPhase("predict");
+  };
+
+  const pickPrediction = (i: number) => {
+    setPredictions((p) => [...p, i]);
+    setPhase("reveal");
+  };
+
+  const nextQuestion = () => {
+    if (qIndex + 1 >= round.length) {
+      finishRound(selfAnswers, predictions);
+    } else {
+      setQIndex((i) => i + 1);
+      setPhase("self");
+    }
+  };
+
+  const copyShare = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(shareText(result) + "\nhivemind.game");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // clipboard unavailable — ignore
+    }
+  };
+
+  const current = round[qIndex];
+  const currentResult =
+    phase === "reveal"
+      ? {
+          self: selfAnswers[qIndex],
+          prediction: predictions[qIndex],
+          majority: current.dist.indexOf(Math.max(...current.dist)),
+        }
+      : null;
+
+  if (!ready) return <main className="min-h-screen" />;
 
   return (
-    <main className="min-h-screen hero-glow">
-      {/* ── Nav ── */}
-      <nav
-        style={{ borderBottom: "1px solid var(--border)" }}
-        className="sticky top-0 z-50 backdrop-blur-md"
-        // eslint-disable-next-line react/no-unknown-property
-      >
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-xl font-bold tracking-tight">AURUM</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FFB800] pulse-dot" />
-          </div>
-          <div className="hidden md:flex items-center gap-7 text-sm" style={{ color: "var(--text-dim)" }}>
-            <a href="#pillars" className="hover:text-white transition-colors">How it works</a>
-            <Link href="/demo" className="hover:text-white transition-colors">Live demo</Link>
-            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-          </div>
-          <Link
-            href="/demo"
-            className="text-sm font-semibold px-5 py-2.5 rounded-xl transition-all"
-            style={{
-              background: "#FFB800",
-              color: "#06070e",
-            }}
-          >
-            Deploy free →
-          </Link>
+    <main className="min-h-screen flex flex-col">
+      {/* Top bar */}
+      <header className="px-5 py-4 flex items-center justify-between max-w-xl mx-auto w-full">
+        <div className="flex items-center gap-2">
+          <span className="font-display text-lg font-black tracking-tight">
+            HIVE<span style={{ color: "#FFE600" }}>MIND</span>
+          </span>
+          <span className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+            #{day}
+          </span>
         </div>
-      </nav>
+        <div className="flex items-center gap-4 font-mono-ui text-xs">
+          {streak > 0 && (
+            <span style={{ color: "#FF6B35" }}>🔥 {streak}</span>
+          )}
+          <span style={{ color: "rgba(255,255,255,0.35)" }}>
+            <Countdown />
+          </span>
+        </div>
+      </header>
 
-      {/* ── Hero ── */}
-      <section className="px-6 pt-20 pb-16">
-        <div className="max-w-6xl mx-auto">
-          <div className="inline-flex items-center gap-2 mb-8 px-3 py-1.5 rounded-full"
-            style={{ background: "rgba(255,184,0,0.08)", border: "1px solid rgba(255,184,0,0.2)" }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FFB800] pulse-dot" />
-            <span className="font-mono-ui text-xs" style={{ color: "#FFB800" }}>
-              AUTONOMOUS WEALTH ENGINE
-            </span>
+      <div className="flex-1 flex flex-col justify-center max-w-xl mx-auto w-full px-5 pb-16">
+        {/* ── INTRO ── */}
+        {phase === "intro" && (
+          <div className="fade-up text-center">
+            <p className="font-mono-ui text-xs tracking-[0.3em] mb-6" style={{ color: "#FFE600" }}>
+              ONE ROUND A DAY · THE WHOLE WORLD PLAYS THE SAME ONE
+            </p>
+            <h1 className="font-display text-5xl sm:text-6xl font-black leading-[0.95] mb-6">
+              Do you know what{" "}
+              <span style={{ color: "#FFE600" }}>everyone</span> is thinking?
+            </h1>
+            <p className="text-base leading-relaxed mb-10 max-w-md mx-auto" style={{ color: "rgba(255,255,255,0.55)" }}>
+              5 questions. First you answer for yourself. Then you predict what
+              most people said. You don&apos;t win by being right —{" "}
+              <span style={{ color: "#fff" }}>you win by reading the hive.</span>
+            </p>
+            <button onClick={() => setPhase("self")} className="btn-primary">
+              Enter the hive →
+            </button>
+            <p className="font-mono-ui text-xs mt-6" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Round #{day} closes in <Countdown />
+            </p>
           </div>
+        )}
 
-          <h1 className="font-display text-5xl md:text-7xl lg:text-8xl font-bold leading-[1.0] mb-8 max-w-5xl">
-            While you sleep,{" "}
-            <span className="shimmer-gold">AURUM hunts.</span>
-          </h1>
-
-          <p className="text-lg md:text-xl max-w-2xl leading-relaxed mb-10"
-            style={{ color: "var(--text-dim)" }}>
-            The first AI that autonomously scans the entire digital economy, finds income
-            opportunities tailored to your exact skills, writes the pitch, and executes — without
-            you lifting a finger. Set it up in 4 minutes. Collect opportunities forever.
-          </p>
-
-          <div className="flex flex-col sm:flex-row gap-4 mb-14">
-            <Link
-              href="/demo"
-              className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl transition-all text-sm"
-              style={{ background: "#FFB800", color: "#06070e" }}
-            >
-              See it work — live demo
-            </Link>
-            <Link
-              href="/pricing"
-              className="inline-flex items-center justify-center gap-2 font-semibold px-8 py-4 rounded-xl transition-all text-sm"
-              style={{ border: "1px solid var(--border)", color: "rgba(255,255,255,0.7)" }}
-            >
-              View pricing
-            </Link>
+        {/* ── PROGRESS DOTS ── */}
+        {(phase === "self" || phase === "predict" || phase === "reveal") && (
+          <div className="flex justify-center gap-2 mb-8">
+            {round.map((_, i) => (
+              <span
+                key={i}
+                className="w-2 h-2 rounded-full transition-all"
+                style={{
+                  background:
+                    i < qIndex
+                      ? "#FFE600"
+                      : i === qIndex
+                        ? "rgba(255,230,0,0.9)"
+                        : "rgba(255,255,255,0.12)",
+                  transform: i === qIndex ? "scale(1.4)" : "scale(1)",
+                }}
+              />
+            ))}
           </div>
+        )}
 
-          {/* Live terminal */}
-          <div
-            className="rounded-2xl p-5 max-w-2xl gold-border-glow"
-            style={{ background: "var(--surface)", border: "1px solid rgba(255,184,0,0.2)" }}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#FFB800] pulse-dot" />
-                <span className="font-mono-ui text-xs" style={{ color: "#FFB800" }}>
-                  LIVE — {agentsActive.toLocaleString()} agents running
-                </span>
+        {/* ── SELF ── */}
+        {phase === "self" && (
+          <div key={`self-${qIndex}`} className="fade-up">
+            <p className="font-mono-ui text-xs tracking-[0.25em] mb-4 text-center" style={{ color: "#7DF9FF" }}>
+              STEP 1 — YOUR ANSWER
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl font-black text-center leading-tight mb-10">
+              {current.question.text}
+            </h2>
+            <div className="space-y-3">
+              {current.question.options.map((opt, i) => (
+                <button key={i} onClick={() => pickSelf(i)} className="btn-option">
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── PREDICT ── */}
+        {phase === "predict" && (
+          <div key={`predict-${qIndex}`} className="fade-up">
+            <p className="font-mono-ui text-xs tracking-[0.25em] mb-4 text-center" style={{ color: "#FF6EC7" }}>
+              STEP 2 — READ THE HIVE
+            </p>
+            <h2 className="font-display text-3xl sm:text-4xl font-black text-center leading-tight mb-3">
+              What did <span style={{ color: "#FFE600" }}>most people</span> say?
+            </h2>
+            <p className="text-center text-sm mb-10" style={{ color: "rgba(255,255,255,0.45)" }}>
+              &ldquo;{current.question.text}&rdquo;
+            </p>
+            <div className="space-y-3">
+              {current.question.options.map((opt, i) => (
+                <button key={i} onClick={() => pickPrediction(i)} className="btn-option btn-option-pink">
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── REVEAL ── */}
+        {phase === "reveal" && currentResult && (
+          <div key={`reveal-${qIndex}`} className="fade-up">
+            <p
+              className="font-display text-4xl font-black text-center mb-2"
+              style={{ color: currentResult.prediction === currentResult.majority ? "#FFE600" : "rgba(255,255,255,0.4)" }}
+            >
+              {currentResult.prediction === currentResult.majority ? "YOU READ THE HIVE" : "THE HIVE WENT ELSEWHERE"}
+            </p>
+            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.45)" }}>
+              &ldquo;{current.question.text}&rdquo;
+            </p>
+            <div className="card p-5 mb-4">
+              {current.question.options.map((opt, i) => (
+                <Bar
+                  key={i}
+                  label={opt}
+                  pct={current.dist[i]}
+                  isMajority={i === currentResult.majority}
+                  isSelf={i === currentResult.self}
+                  isPrediction={i === currentResult.prediction}
+                  delay={i * 150}
+                />
+              ))}
+            </div>
+            <p className="text-center text-sm mb-8" style={{ color: "rgba(255,255,255,0.5)" }}>
+              {current.dist[currentResult.self] >= 50
+                ? `${current.dist[currentResult.self]}% of the hive thinks like you.`
+                : `Only ${current.dist[currentResult.self]}% of the hive agrees with you. Interesting.`}
+            </p>
+            <button onClick={nextQuestion} className="btn-primary w-full">
+              {qIndex + 1 >= round.length ? "See who you are →" : "Next →"}
+            </button>
+          </div>
+        )}
+
+        {/* ── RESULTS ── */}
+        {phase === "results" && result && (
+          <div className="fade-up text-center">
+            <p className="font-mono-ui text-xs tracking-[0.3em] mb-5" style={{ color: "rgba(255,255,255,0.4)" }}>
+              HIVEMIND #{result.day} — YOUR READING
+            </p>
+            <div className="text-6xl mb-3">{result.persona.emoji}</div>
+            <h2 className="font-display text-4xl sm:text-5xl font-black mb-3" style={{ color: "#FFE600" }}>
+              {result.persona.name}
+            </h2>
+            <p className="text-base max-w-md mx-auto mb-10 leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {result.persona.line}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-8">
+              <div className="card p-5">
+                <p className="font-display text-4xl font-black mb-1">🧠 {result.read}/5</p>
+                <p className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  MIND READ
+                </p>
               </div>
-              <span className="font-mono-ui text-xs" style={{ color: "var(--text-faint)" }}>
-                {oppCount.toLocaleString()} opportunities scanned today
+              <div className="card p-5">
+                <p className="font-display text-4xl font-black mb-1">⚡ {result.sync}%</p>
+                <p className="font-mono-ui text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  HIVE SYNC
+                </p>
+              </div>
+            </div>
+
+            <div className="card p-5 mb-8 text-left">
+              <p className="font-mono-ui text-xs mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+                YOUR ROUND
+              </p>
+              {result.results.map((r, i) => {
+                const q = round.find((x) => x.question.id === r.questionId)?.question;
+                return (
+                  <div key={i} className="flex items-center gap-3 py-2 text-sm" style={{ borderBottom: i < 4 ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
+                    <span>{r.correct ? "🟡" : "⚫"}</span>
+                    <span className="flex-1 truncate" style={{ color: "rgba(255,255,255,0.6)" }}>
+                      {q?.text}
+                    </span>
+                    <span className="font-mono-ui text-xs shrink-0" style={{ color: r.correct ? "#FFE600" : "rgba(255,255,255,0.3)" }}>
+                      {r.correct ? "read" : "missed"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button onClick={copyShare} className="btn-primary w-full mb-3">
+              {copied ? "Copied ✓" : "Share your reading"}
+            </button>
+
+            <div className="flex items-center justify-center gap-4 font-mono-ui text-xs mt-6" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {streak > 0 && <span style={{ color: "#FF6B35" }}>🔥 {streak} day streak</span>}
+              <span>
+                Next round in <Countdown />
               </span>
             </div>
-            <div className="min-h-[28px]">
-              <LiveFeed />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Stats bar ── */}
-      <section
-        className="px-6 py-10"
-        style={{ borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }}
-      >
-        <div className="max-w-6xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
-          {[
-            { value: `${(oppCount / 1_000_000).toFixed(1)}M`, label: "Opportunities found / month" },
-            { value: `$${(incomeUnlocked / 1_000_000).toFixed(1)}M`, label: "Income unlocked / month" },
-            { value: "94%", label: "Profile match accuracy" },
-            { value: "4 min", label: "Average setup time" },
-          ].map((stat) => (
-            <div key={stat.label}>
-              <p className="font-display text-4xl font-bold mb-1" style={{ color: "#FFB800" }}>
-                {stat.value}
-              </p>
-              <p className="text-sm" style={{ color: "var(--text-dim)" }}>
-                {stat.label}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── Income types ── */}
-      <section className="px-6 py-20">
-        <div className="max-w-6xl mx-auto">
-          <p className="font-mono-ui text-xs uppercase tracking-widest mb-4"
-            style={{ color: "var(--text-faint)" }}>
-            Not just sales. Every path to income.
-          </p>
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-4 max-w-3xl">
-            One engine. Five income streams.
-          </h2>
-          <p className="max-w-xl mb-12 text-base leading-relaxed" style={{ color: "var(--text-dim)" }}>
-            AURUM hunts across every category where your skills can create income —
-            simultaneously, automatically, always.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            {INCOME_TYPES.map((t) => (
-              <div
-                key={t.label}
-                className="rounded-2xl p-5 card-surface"
-                style={{ borderLeft: `3px solid ${t.color}` }}
-              >
-                <p className="font-semibold text-sm mb-2">{t.label}</p>
-                <p className="font-mono-ui text-xs" style={{ color: t.color }}>
-                  e.g. {t.ex}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Pillars ── */}
-      <section
-        id="pillars"
-        className="px-6 py-20"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <p className="font-mono-ui text-xs uppercase tracking-widest mb-4"
-            style={{ color: "var(--text-faint)" }}>
-            How it works
-          </p>
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-16 max-w-2xl">
-            Five loops. Running in parallel. Always.
-          </h2>
-          <div className="space-y-px">
-            {PILLARS.map((p) => (
-              <div
-                key={p.tag}
-                className="grid grid-cols-1 md:grid-cols-3 gap-6 py-8"
-                style={{ borderBottom: "1px solid var(--border)" }}
-              >
-                <div>
-                  <p className="font-mono-ui text-xs font-bold" style={{ color: p.color }}>
-                    {p.tag}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="font-display text-xl font-bold mb-2">{p.title}</h3>
-                </div>
-                <p className="text-sm leading-relaxed" style={{ color: "var(--text-dim)" }}>
-                  {p.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Comparison ── */}
-      <section
-        className="px-6 py-20"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <h2 className="font-display text-4xl md:text-5xl font-bold mb-4">
-            The old way costs you{" "}
-            <span className="shimmer-gold">everything.</span>
-          </h2>
-          <p className="mb-12 max-w-xl text-base" style={{ color: "var(--text-dim)" }}>
-            Every day without AURUM is a day spent not finding the deals that could change your year.
-          </p>
-          <div
-            className="rounded-2xl overflow-hidden"
-            style={{ border: "1px solid var(--border)" }}
-          >
-            <div
-              className="grid grid-cols-3 px-6 py-4 font-mono-ui text-xs uppercase tracking-widest"
-              style={{
-                background: "var(--surface)",
-                color: "var(--text-faint)",
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <span />
-              <span>Without AURUM</span>
-              <span style={{ color: "#FFB800" }}>With AURUM</span>
-            </div>
-            {COMPARISON.map((row, i) => (
-              <div
-                key={row.label}
-                className="grid grid-cols-3 px-6 py-4 text-sm"
-                style={{ background: i % 2 ? "rgba(255,255,255,0.015)" : "transparent" }}
-              >
-                <span style={{ color: "var(--text-dim)" }}>{row.label}</span>
-                <span style={{ color: "rgba(255,255,255,0.45)" }}>{row.old}</span>
-                <span className="font-semibold" style={{ color: "#FFB800" }}>{row.aurum}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Demo CTA ── */}
-      <section
-        className="px-6 py-20"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div className="max-w-6xl mx-auto">
-          <div
-            className="rounded-3xl p-10 md:p-16 text-center"
-            style={{
-              background:
-                "radial-gradient(ellipse at 50% 0%, rgba(255,184,0,0.1) 0%, rgba(255,184,0,0.02) 60%), var(--surface)",
-              border: "1px solid rgba(255,184,0,0.2)",
-            }}
-          >
-            <p className="font-mono-ui text-xs uppercase tracking-widest mb-6"
-              style={{ color: "#FFB800" }}>
-              Live demo — no signup required
-            </p>
-            <h2 className="font-display text-4xl md:text-6xl font-bold mb-6 max-w-3xl mx-auto">
-              Tell it what you&apos;re good at. Watch it hunt.
-            </h2>
-            <p className="mb-10 max-w-xl mx-auto text-lg" style={{ color: "var(--text-dim)" }}>
-              Enter your skills and AURUM will scan for real opportunities, score them by
-              conversion probability, and write a personalized pitch — right in front of you.
-              Takes 10 seconds.
-            </p>
-            <Link
-              href="/demo"
-              className="inline-flex items-center gap-2 font-semibold px-10 py-5 rounded-xl text-lg transition-all"
-              style={{ background: "#FFB800", color: "#06070e" }}
-            >
-              Deploy AURUM →
-            </Link>
-            <p className="mt-5 font-mono-ui text-xs" style={{ color: "var(--text-faint)" }}>
-              First 14 days free. No credit card.
+            <p className="font-mono-ui text-xs mt-8" style={{ color: "rgba(255,255,255,0.25)" }}>
+              One round a day. Come back tomorrow. The hive will be waiting.
             </p>
           </div>
-        </div>
-      </section>
-
-      {/* ── Footer ── */}
-      <footer
-        className="px-6 py-10"
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="font-display font-bold">AURUM</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FFB800]" />
-          </div>
-          <p className="font-mono-ui text-xs" style={{ color: "var(--text-faint)" }}>
-            The agent is always running. © 2026 AURUM.
-          </p>
-          <div className="flex gap-6 font-mono-ui text-xs" style={{ color: "var(--text-faint)" }}>
-            <Link href="/demo" className="hover:text-white transition-colors">Demo</Link>
-            <Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link>
-            <Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link>
-          </div>
-        </div>
-      </footer>
+        )}
+      </div>
     </main>
   );
 }

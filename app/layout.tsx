@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AURUM — The Autonomous Wealth Engine",
+  title: "HIVEMIND — Do you know what everyone is thinking?",
   description:
-    "AURUM scans the entire digital economy 24/7, finds income opportunities tailored to your skills, writes the pitch, and acts on your behalf. You just approve. The world's first autonomous wealth engine.",
+    "One round a day. 5 questions. The whole world plays the same one. You don't win by being right — you win by knowing what everyone else thinks.",
 };
 
 export default function RootLayout({

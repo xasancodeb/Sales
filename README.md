@@ -1,39 +1,56 @@
-# Quota — The Autonomous Revenue Agent
+# HIVEMIND
 
-An AI sales agent that researches prospects, detects buying signals, scores intent, and writes personalized outreach — built with Next.js, Tailwind, and the Claude API.
+**Do you know what everyone is thinking?**
 
-**Investor memo:** see [PITCH.md](./PITCH.md).
+One round a day. 5 questions. The whole world plays the same one. You don't win by being right — you win by knowing what everyone else thinks.
+
+## The game
+
+Each question has two steps:
+
+1. **Your answer** — what do *you* think?
+2. **Read the hive** — what did *most people* say?
+
+Then the reveal: animated crowd distribution, whether you called the majority, and how mainstream (or alien) your own answer is.
+
+After 5 questions you get:
+
+- **Mind Read** (0–5) — how many majorities you predicted
+- **Hive Sync** (0–100%) — what fraction of the crowd shares your answers
+- **A persona** — The Oracle, The Insider, The Puppetmaster, The Alien… your daily identity, built from the two scores
+- **A share grid** — Wordle-style emoji result for one-tap sharing
+- **A streak** — and a countdown to the next round
+
+## Why it hooks
+
+- **Scarcity:** one round a day, hard-locked. You can't binge it, so you come back.
+- **Curiosity gap:** "what did everyone else say?" is the most clickable question in existence.
+- **Identity:** results tell you *who you are*, not just how you scored. People share identity.
+- **Same round for everyone:** day number is global (UTC) — everyone argues about the same 5 questions, every day.
 
 ## Run it
 
 ```bash
-cd quota
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000 — landing page, `/demo` for the live agent run, `/pricing` for plans.
-
-### Live AI writing (optional)
-
-The demo works out of the box with a deterministic local engine. To have Claude write the outreach for real:
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-npm run dev
-```
-
-The API route (`app/api/agent/route.ts`) automatically uses Claude (`claude-opus-4-8`) when the key is present and falls back to the local engine otherwise — the demo never breaks.
+Open http://localhost:3000. That's the whole product — the game *is* the homepage.
 
 ## Architecture
 
 ```
-app/page.tsx           landing page
-app/demo/page.tsx      live agent dashboard (activity feed + results)
-app/pricing/page.tsx   pricing tiers
-app/api/agent/route.ts agent endpoint
-lib/leads.ts           prospect universe + intent-scoring engine
-lib/agent.ts           outreach writer (Claude + local fallback)
+app/page.tsx      the game (intro → answer → predict → reveal → results)
+lib/hivemind.ts   question bank, daily selection, scoring, personas, share text
 ```
 
-The prospect universe in `lib/leads.ts` is simulated demo data. In production it's replaced by live enrichment providers behind the same interface — scoring and writing logic are unchanged.
+- Daily round selection and crowd distributions are deterministic (seeded by day number) so every player on Earth sees the identical round.
+- Streaks and history live in `localStorage`.
+- Crowd percentages are seeded baselines with daily jitter. The production path replaces them with real aggregated votes behind the same `dist` interface — game logic is unchanged.
+
+## Roadmap to the network effect
+
+1. Real vote aggregation (one API route + a counter table) — crowd data becomes live.
+2. Friend leagues — see your friends' personas before they see yours… only after you play.
+3. Country vs. country sync scores — "Brazil read the hive better than France today."
+4. User-submitted questions voted into future rounds.
