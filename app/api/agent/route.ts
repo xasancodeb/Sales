@@ -4,23 +4,23 @@ import { runAgent } from "@/lib/agent";
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  let body: { product?: string; audience?: string };
+  let body: { profile?: string; goals?: string };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const product = (body.product ?? "").trim();
-  const audience = (body.audience ?? "").trim();
+  const profile = (body.profile ?? "").trim();
+  const goals = (body.goals ?? "").trim();
 
-  if (product.length < 10) {
+  if (profile.length < 10) {
     return NextResponse.json(
-      { error: "Describe what you sell in at least a sentence." },
+      { error: "Describe your skills in at least a sentence so AURUM can match properly." },
       { status: 400 },
     );
   }
 
-  const result = await runAgent(product, audience);
+  const result = await runAgent(profile, goals);
   return NextResponse.json(result);
 }
