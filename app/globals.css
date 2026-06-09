@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0b0f0e;
+  --paper: #f5f4ef;
+  --signal: #b8f53d;
+}
+
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: Georgia, "Times New Roman", serif;
+  letter-spacing: -0.02em;
+}
+
+.font-mono-ui {
+  font-family: "SF Mono", "Fira Code", ui-monospace, Menlo, monospace;
+}
+
+@keyframes feed-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.feed-in {
+  animation: feed-in 0.35s ease-out both;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+.pulse-dot {
+  animation: pulse-dot 1.2s ease-in-out infinite;
+}
