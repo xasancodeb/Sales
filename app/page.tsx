@@ -22,7 +22,7 @@ function Countdown() {
     const t = setInterval(() => setMs(msUntilReset()), 1000);
     return () => clearInterval(t);
   }, []);
-  if (ms === null) return <span className="font-mono">--:--:--</span>;
+  if (ms === null) return null;
   const h = Math.floor(ms / 3_600_000);
   const m = Math.floor((ms % 3_600_000) / 60_000);
   const s = Math.floor((ms % 60_000) / 1000);
@@ -51,8 +51,7 @@ export default function Feed() {
   }, []);
 
   const vote = (postId: string, dir: 1 | -1) => {
-    const updated = castVote(day, postId, dir);
-    setVotes({ ...updated });
+    setVotes({ ...castVote(day, postId, dir) });
   };
 
   const effectiveVotes = (p: RankedPost) => {
@@ -67,166 +66,104 @@ export default function Feed() {
     : null;
 
   return (
-    <main className="min-h-screen max-w-2xl mx-auto px-4 pb-24">
+    <main className="min-h-screen max-w-md mx-auto px-6 pb-20">
 
-      {/* ── Masthead ── */}
-      <header className="pt-10 pb-6" style={{ borderBottom: "1px solid var(--border-bright)" }}>
-        <div className="flex items-end justify-between">
-          <div>
-            <h1 className="font-serif text-5xl font-black tracking-tighter leading-none mb-1">ONE</h1>
-            <p className="font-mono text-xs" style={{ color: "var(--dim)" }}>{date}</p>
-          </div>
-          <div className="text-right">
-            <div className="flex items-center gap-1.5 justify-end mb-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00ccff] pulse-live" />
-              <span className="font-mono text-xs" style={{ color: "#00ccff" }}>LIVE</span>
-            </div>
-            <p className="font-mono text-xs" style={{ color: "var(--faint)" }}>
-              Round #{day} · resets in <Countdown />
-            </p>
-          </div>
-        </div>
-        <p className="font-mono text-xs mt-4" style={{ color: "var(--faint)" }}>
-          {postersToday} people posted today
+      {/* Header */}
+      <header className="pt-12 pb-2 text-center">
+        <h1 className="font-serif text-4xl font-black tracking-tight mb-1">ONE</h1>
+        <p className="text-sm mb-1" style={{ color: "var(--dim)" }}>
+          The world&apos;s shared page · {date}
+        </p>
+        <p className="text-xs" style={{ color: "var(--faint)" }}>
+          {postersToday} voices today · new page in <Countdown />
         </p>
       </header>
 
-      {/* ── Post CTA ── */}
-      {!userPost ? (
-        <div className="py-5 fade-up" style={{ borderBottom: "1px solid var(--border)" }}>
+      {/* Your post / write */}
+      <div className="py-8" style={{ borderBottom: "1px solid var(--border)" }}>
+        {userPost ? (
+          <div
+            className="rounded-2xl px-5 py-4"
+            style={{ background: "#fff", border: "1px solid var(--border)" }}
+          >
+            <p className="text-base leading-relaxed mb-1.5">{userPost.text}</p>
+            <p className="text-xs" style={{ color: "var(--accent)" }}>
+              your voice today · #{userRank} of {postersToday}
+            </p>
+          </div>
+        ) : (
           <Link
             href="/post"
-            className="flex items-center justify-between w-full px-4 py-3.5 rounded-xl transition-all text-sm"
-            style={{ background: "var(--surface)", border: "1px solid rgba(0,204,255,0.25)", color: "rgba(255,255,255,0.5)" }}
+            className="block rounded-2xl px-5 py-4 text-base transition-shadow hover:shadow-sm"
+            style={{ background: "#fff", border: "1px solid var(--border)", color: "var(--dim)" }}
           >
-            <span>What's on your mind today? You have one shot.</span>
-            <span style={{ color: "#00ccff", fontSize: "1.1rem" }}>→</span>
+            Add your voice today — one post, same as everyone{" "}
+            <span style={{ color: "var(--accent)" }}>→</span>
           </Link>
-        </div>
-      ) : (
-        <div className="py-5 fade-up" style={{ borderBottom: "1px solid var(--border)" }}>
-          <p className="font-mono text-xs mb-3" style={{ color: "#00ccff" }}>
-            YOUR POST TODAY · #{userRank} of {postersToday}
-          </p>
-          <div className="px-4 py-3 rounded-xl text-sm" style={{ background: "rgba(0,204,255,0.05)", border: "1px solid rgba(0,204,255,0.2)", color: "rgba(255,255,255,0.8)" }}>
-            {userPost.text}
-          </div>
-          <p className="font-mono text-xs mt-2" style={{ color: "var(--faint)" }}>
-            Posted · Come back tomorrow for another shot.
-          </p>
-        </div>
-      )}
-
-      {/* ── Feed header ── */}
-      <div className="py-4 flex items-center justify-between" style={{ borderBottom: "1px solid var(--border)" }}>
-        <span className="font-mono text-xs uppercase tracking-widest" style={{ color: "var(--faint)" }}>
-          Today's front page
-        </span>
-        <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
-          votes
-        </span>
+        )}
       </div>
 
-      {/* ── Posts ── */}
+      {/* Feed */}
       <div>
         {feed.map((post, i) => {
-          const voteDir = votes[post.id];
-          const ev = effectiveVotes(post);
+          const v = votes[post.id];
           const isFirst = i === 0;
-
           return (
             <article
               key={post.id}
-              className="py-6 fade-up"
-              style={{
-                borderBottom: "1px solid var(--border)",
-                animationDelay: `${i * 0.03}s`,
-              }}
+              className="py-7"
+              style={{ borderBottom: "1px solid var(--border)" }}
             >
-              <div className="flex gap-4">
-                {/* Rank */}
-                <div className="shrink-0 w-7 text-right pt-0.5">
-                  <span
-                    className="font-mono text-sm"
-                    style={{ color: isFirst ? "var(--gold)" : "var(--faint)", fontWeight: isFirst ? 700 : 400 }}
-                  >
-                    {post.rank}
-                  </span>
-                </div>
-
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2.5 flex-wrap">
-                    <span className="text-base">{post.flag}</span>
-                    <span className="text-sm font-semibold">{post.author}</span>
-                    <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
-                      @{post.handle}
-                    </span>
-                    <span className="font-mono text-xs" style={{ color: "var(--faint)" }}>
-                      · {post.country}
-                    </span>
-                    {isFirst && (
-                      <span
-                        className="font-mono text-xs px-2 py-0.5 rounded-full"
-                        style={{ color: "var(--gold)", background: "rgba(255,215,0,0.1)", border: "1px solid rgba(255,215,0,0.3)" }}
-                      >
-                        #1 TODAY
-                      </span>
-                    )}
-                  </div>
-
-                  <p
-                    className="leading-relaxed"
-                    style={{
-                      fontSize: isFirst ? "1.15rem" : "0.95rem",
-                      color: isFirst ? "#fff" : "rgba(255,255,255,0.85)",
-                      fontFamily: isFirst ? "Georgia, serif" : "inherit",
-                    }}
-                  >
-                    {post.text}
-                  </p>
-                </div>
-
-                {/* Vote column */}
-                <div className="shrink-0 flex flex-col items-center gap-1.5 pt-0.5">
+              <p
+                className="leading-relaxed mb-2.5"
+                style={{
+                  fontSize: isFirst ? "1.25rem" : "1rem",
+                  fontFamily: isFirst ? "Georgia, serif" : "inherit",
+                }}
+              >
+                {post.text}
+              </p>
+              <div className="flex items-center gap-2.5 text-xs" style={{ color: "var(--faint)" }}>
+                <span style={{ color: isFirst ? "var(--gold)" : "var(--faint)", fontWeight: isFirst ? 700 : 400 }}>
+                  {isFirst ? "★ today's voice" : post.rank}
+                </span>
+                <span style={{ color: "var(--dim)" }}>
+                  {post.flag} {post.author} · {post.country}
+                </span>
+                <span className="flex items-center gap-2 ml-auto">
                   <button
                     onClick={() => vote(post.id, 1)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+                    className="px-1.5 py-0.5 rounded-md transition-colors"
                     style={{
-                      background: voteDir === 1 ? "rgba(0,204,255,0.15)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${voteDir === 1 ? "rgba(0,204,255,0.4)" : "rgba(255,255,255,0.08)"}`,
-                      color: voteDir === 1 ? "#00ccff" : "var(--faint)",
+                      color: v === 1 ? "#fff" : "var(--faint)",
+                      background: v === 1 ? "var(--accent)" : "transparent",
                     }}
                   >
                     ▲
                   </button>
-                  <span className="font-mono text-xs" style={{ color: voteDir === 1 ? "#00ccff" : voteDir === -1 ? "rgba(255,80,80,0.8)" : "var(--dim)" }}>
-                    {fmt(ev)}
+                  <span style={{ color: v === 1 ? "var(--accent)" : v === -1 ? "var(--heart)" : "var(--dim)" }}>
+                    {fmt(effectiveVotes(post))}
                   </span>
                   <button
                     onClick={() => vote(post.id, -1)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+                    className="px-1.5 py-0.5 rounded-md transition-colors"
                     style={{
-                      background: voteDir === -1 ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.04)",
-                      border: `1px solid ${voteDir === -1 ? "rgba(255,80,80,0.3)" : "rgba(255,255,255,0.08)"}`,
-                      color: voteDir === -1 ? "rgba(255,80,80,0.9)" : "var(--faint)",
+                      color: v === -1 ? "#fff" : "var(--faint)",
+                      background: v === -1 ? "var(--heart)" : "transparent",
                     }}
                   >
                     ▼
                   </button>
-                </div>
+                </span>
               </div>
             </article>
           );
         })}
       </div>
 
-      {/* ── Footer ── */}
-      <div className="pt-8 text-center">
-        <p className="font-mono text-xs" style={{ color: "var(--faint)" }}>
-          Feed resets in <Countdown /> — come back with something worth saying
-        </p>
-      </div>
+      <p className="text-xs text-center pt-12" style={{ color: "var(--faint)" }}>
+        Tomorrow the page is blank again. Everyone starts equal. <Countdown />
+      </p>
     </main>
   );
 }

@@ -23,10 +23,9 @@ function Countdown() {
 
 export default function PostPage() {
   const [text, setText] = useState("");
-  const [submitted, setSubmitted] = useState(false);
-  const [alreadyPosted, setAlreadyPosted] = useState(false);
+  const [done, setDone] = useState(false);
   const [day, setDay] = useState(0);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     const d = dayNumber();
@@ -34,118 +33,80 @@ export default function PostPage() {
     const existing = loadUserPost(d);
     if (existing) {
       setText(existing.text);
-      setAlreadyPosted(true);
+      setDone(true);
     } else {
-      setTimeout(() => textareaRef.current?.focus(), 200);
+      setTimeout(() => ref.current?.focus(), 150);
     }
   }, []);
 
   const submit = () => {
-    const trimmed = text.trim();
-    if (!trimmed || trimmed.length > MAX || alreadyPosted) return;
-    saveUserPost(day, { text: trimmed, postedAt: new Date().toISOString(), votes: 1 });
-    setSubmitted(true);
+    const t = text.trim();
+    if (t.length < 2 || t.length > MAX || done) return;
+    saveUserPost(day, { text: t, postedAt: new Date().toISOString(), votes: 1 });
+    setDone(true);
   };
 
-  const remaining = MAX - text.length;
-  const canSubmit = text.trim().length >= 5 && remaining >= 0 && !alreadyPosted && !submitted;
-
-  if (submitted || alreadyPosted) {
+  if (done) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-5 text-center">
-        <Link href="/" className="font-serif text-4xl font-black tracking-tighter mb-12 block">ONE</Link>
-        <p className="font-mono text-xs uppercase tracking-widest mb-6" style={{ color: "#00ccff" }}>
-          {submitted ? "Your post is live." : "Already posted today."}
-        </p>
-        <p
-          className="text-xl leading-relaxed max-w-lg mb-10 font-serif"
-          style={{ color: "rgba(255,255,255,0.85)" }}
+      <main className="min-h-screen max-w-md mx-auto px-6 flex flex-col justify-center">
+        <div
+          className="rounded-2xl px-6 py-5 mb-6"
+          style={{ background: "#fff", border: "1px solid var(--border)" }}
         >
-          &ldquo;{text}&rdquo;
+          <p className="text-lg leading-relaxed mb-2 font-serif">{text}</p>
+          <p className="text-xs" style={{ color: "var(--accent)" }}>
+            your voice is on the world&apos;s page now
+          </p>
+        </div>
+        <p className="text-xs mb-10" style={{ color: "var(--faint)" }}>
+          everyone gets one — yours renews in <Countdown />
         </p>
-        <p className="font-mono text-sm mb-8" style={{ color: "rgba(255,255,255,0.4)" }}>
-          Competing with {alreadyPosted && !submitted ? "the feed now" : "the world now"}.
-          Next shot in <Countdown />.
-        </p>
-        <Link
-          href="/"
-          className="font-mono text-sm px-6 py-3 rounded-xl transition-all"
-          style={{ background: "rgba(0,204,255,0.1)", border: "1px solid rgba(0,204,255,0.3)", color: "#00ccff" }}
-        >
-          ← See today's front page
+        <Link href="/" className="text-sm" style={{ color: "var(--accent)" }}>
+          ← read today&apos;s page
         </Link>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-5">
-      <div className="w-full max-w-xl">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-10">
-          <Link href="/" className="font-serif text-3xl font-black tracking-tighter">ONE</Link>
-          <p className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-            Resets in <Countdown />
-          </p>
+    <main className="min-h-screen max-w-md mx-auto px-6 flex flex-col justify-center">
+      <p className="font-serif text-3xl font-bold mb-2">Your one post today.</p>
+      <p className="text-sm mb-10" style={{ color: "var(--dim)" }}>
+        Same as every person on Earth — one voice, one shot, all equal.
+      </p>
+
+      <div
+        className="rounded-2xl px-5 py-4 mb-6"
+        style={{ background: "#fff", border: "1px solid var(--border)" }}
+      >
+        <textarea
+          ref={ref}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="What do you want the world to read?"
+          rows={4}
+          maxLength={MAX}
+          className="w-full bg-transparent text-lg leading-relaxed resize-none focus:outline-none"
+          style={{ color: "var(--ink)", caretColor: "var(--accent)" }}
+        />
+        <div className="flex items-center justify-between pt-2" style={{ borderTop: "1px solid var(--border)" }}>
+          <span className="text-xs" style={{ color: "var(--faint)" }}>
+            {MAX - text.length} characters left
+          </span>
+          <span className="text-xs" style={{ color: "var(--faint)" }}>
+            no edits · no deletes
+          </span>
         </div>
-
-        {/* The prompt */}
-        <p
-          className="font-serif text-3xl font-bold leading-snug mb-2"
-          style={{ color: "rgba(255,255,255,0.9)" }}
-        >
-          You have one post today.
-        </p>
-        <p className="text-base mb-8" style={{ color: "rgba(255,255,255,0.4)" }}>
-          It competes against everyone on Earth. Make it worth reading.
-        </p>
-
-        {/* Textarea */}
-        <div
-          className="rounded-2xl overflow-hidden mb-4"
-          style={{ border: `1px solid ${text.length > 0 ? "rgba(0,204,255,0.3)" : "rgba(255,255,255,0.1)"}`, background: "var(--surface)", transition: "border-color 0.2s ease" }}
-        >
-          <textarea
-            ref={textareaRef}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Say something that matters."
-            rows={6}
-            maxLength={MAX + 10}
-            className="w-full px-5 py-5 text-base resize-none focus:outline-none bg-transparent leading-relaxed"
-            style={{ color: "#fff", caretColor: "#00ccff" }}
-          />
-          <div
-            className="flex items-center justify-between px-5 py-3"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
-          >
-            <span className="font-mono text-xs" style={{ color: remaining < 0 ? "#ff5050" : remaining < 30 ? "rgba(255,184,0,0.8)" : "rgba(255,255,255,0.25)" }}>
-              {remaining} left
-            </span>
-            <span className="font-mono text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
-              {MAX} max · no edits after posting
-            </span>
-          </div>
-        </div>
-
-        {/* Submit */}
-        <button
-          onClick={submit}
-          disabled={!canSubmit}
-          className="w-full py-4 rounded-xl font-bold text-base transition-all"
-          style={{
-            background: canSubmit ? "#00ccff" : "rgba(255,255,255,0.06)",
-            color: canSubmit ? "#070809" : "rgba(255,255,255,0.2)",
-            cursor: canSubmit ? "pointer" : "not-allowed",
-          }}
-        >
-          Post to the world →
-        </button>
-
-        <p className="font-mono text-xs text-center mt-4" style={{ color: "rgba(255,255,255,0.2)" }}>
-          One post. It doesn&apos;t delete. It doesn&apos;t edit. It just competes.
-        </p>
       </div>
+
+      <button
+        onClick={submit}
+        disabled={text.trim().length < 2}
+        className="w-full py-3.5 rounded-2xl text-base font-semibold transition-opacity disabled:opacity-30"
+        style={{ background: "var(--accent)", color: "#fff" }}
+      >
+        Add my voice
+      </button>
     </main>
   );
 }
