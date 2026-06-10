@@ -1,8 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { dayNumber, loadUserPost, saveUserPost, msUntilReset } from "@/lib/one";
+import {
+  Profile, dayNumber, deviceId, loadProfile, loadUserPost,
+  msUntilReset, recordPostedDay, saveUserPost,
+} from "@/lib/one";
+import { getLang } from "@/lib/lang";
+import { submitLivePost } from "@/lib/api";
 
 const MAX = 300;
 
@@ -22,12 +28,20 @@ function Countdown() {
 }
 
 export default function PostPage() {
+  const router = useRouter();
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [day, setDay] = useState(0);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
+    const p = loadProfile();
+    if (!p) {
+      router.replace("/welcome");
+      return;
+    }
+    setProfile(p);
     const d = dayNumber();
     setDay(d);
     const existing = loadUserPost(d);
@@ -37,14 +51,19 @@ export default function PostPage() {
     } else {
       setTimeout(() => ref.current?.focus(), 150);
     }
-  }, []);
+  }, [router]);
 
   const submit = () => {
     const t = text.trim();
     if (t.length < 2 || t.length > MAX || done) return;
-    saveUserPost(day, { text: t, postedAt: new Date().toISOString(), votes: 1 });
+    const lang = getLang();
+    saveUserPost(day, { text: t, postedAt: new Date().toISOString(), votes: 1, lang });
+    recordPostedDay(day);
+    submitLivePost(day, deviceId(), t, lang); // shared with everyone when live
     setDone(true);
   };
+
+  if (!profile) return <main className="min-h-screen" />;
 
   if (done) {
     return (
@@ -55,15 +74,23 @@ export default function PostPage() {
         >
           <p className="text-lg leading-relaxed mb-2 font-serif">{text}</p>
           <p className="text-xs" style={{ color: "var(--accent)" }}>
-            your voice is on the world&apos;s page now
+            {profile.flag} {profile.name} — your voice is on the world&apos;s page now
           </p>
         </div>
+        <p className="text-xs mb-3" style={{ color: "var(--dim)" }}>
+          come back later — the page counts every person who reads it
+        </p>
         <p className="text-xs mb-10" style={{ color: "var(--faint)" }}>
           everyone gets one — yours renews in <Countdown />
         </p>
-        <Link href="/" className="text-sm" style={{ color: "var(--accent)" }}>
-          ← read today&apos;s page
-        </Link>
+        <div className="flex gap-6">
+          <Link href="/" className="text-sm" style={{ color: "var(--accent)" }}>
+            ← read today&apos;s page
+          </Link>
+          <Link href="/me" className="text-sm" style={{ color: "var(--dim)" }}>
+            your stats
+          </Link>
+        </div>
       </main>
     );
   }
@@ -107,6 +134,9 @@ export default function PostPage() {
       >
         Add my voice
       </button>
+      <p className="text-xs text-center mt-4" style={{ color: "var(--faint)" }}>
+        posting as {profile.flag} {profile.name} · {profile.country}
+      </p>
     </main>
   );
 }

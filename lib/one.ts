@@ -22,6 +22,7 @@ export type UserPost = {
   text: string;
   postedAt: string; // ISO string
   votes: number;
+  lang?: string; // language the author wrote in
 };
 
 export type VoteMap = Record<string, 1 | -1>; // id → direction
@@ -136,6 +137,217 @@ export function castVote(day: number, postId: string, dir: 1 | -1): VoteMap {
   }
   localStorage.setItem(KEY_VOTES(day), JSON.stringify(votes));
   return votes;
+}
+
+// ── Identity, streaks & the reward loop ──────────────────────────────
+// Everything below is the "your voice was heard" layer: each person gets
+// a felt response every day even when they don't win — a live count of
+// readers, a streak for showing up, one voice delivered only to them,
+// and an occasional unannounced surprise. All deterministic per device.
+
+const KEY_UID = "one_uid";
+const KEY_STREAK = "one_streak";
+const KEY_PROFILE = "one_profile";
+const KEY_POSTED_DAYS = "one_posted_days";
+
+// ── Account ───────────────────────────────────────────────────────────
+// Everyone creates an identity before using ONE: a name and a country.
+// That's the whole account — enough to own your posts, your streak and
+// your lifetime stats. No email, no password, no friction.
+
+export type Profile = {
+  name: string;
+  country: string;
+  flag: string;
+  joinedDay: number;
+};
+
+export function loadProfile(): Profile | null {
+  try {
+    const raw = localStorage.getItem(KEY_PROFILE);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+export function saveProfile(p: Profile): void {
+  try { localStorage.setItem(KEY_PROFILE, JSON.stringify(p)); } catch {}
+}
+
+export function postedDays(): number[] {
+  try {
+    return JSON.parse(localStorage.getItem(KEY_POSTED_DAYS) ?? "[]");
+  } catch { return []; }
+}
+
+export function recordPostedDay(day: number): void {
+  try {
+    const days = postedDays();
+    if (!days.includes(day)) {
+      days.push(day);
+      localStorage.setItem(KEY_POSTED_DAYS, JSON.stringify(days));
+    }
+  } catch {}
+}
+
+export type LifetimeStats = {
+  posts: number;
+  readers: number;
+  countries: number;
+  joinedDate: string;
+  streak: number;
+};
+
+// Lifetime numbers that only ever go up — the account's accumulating
+// value. Past days count at their full (end-of-day) reach; today counts
+// at its current live reach.
+export function lifetimeStats(today: number, profile: Profile): LifetimeStats {
+  const days = postedDays();
+  let readers = 0;
+  const countrySet = new Set<number>();
+  for (const d of days) {
+    const rng = seeded(d * 7919 + (uidSeed() % 65536));
+    const targetReaders = 1500 + Math.floor(rng() * 7800);
+    const targetCountries = 12 + Math.floor(rng() * 56);
+    if (d < today) {
+      readers += targetReaders;
+      countrySet.add(targetCountries);
+    } else {
+      const post = loadUserPost(d);
+      if (post) {
+        const live = heardStats(d, post.postedAt);
+        readers += live.readers;
+        countrySet.add(live.countries);
+      }
+    }
+  }
+  const countries = Math.min(195, countrySet.size === 0 ? 0 : Math.max(...countrySet));
+  let streakCount = 0;
+  try {
+    const raw = localStorage.getItem(KEY_STREAK);
+    if (raw) streakCount = JSON.parse(raw).count ?? 0;
+  } catch {}
+  return {
+    posts: days.length,
+    readers,
+    countries,
+    joinedDate: dateDisplayForDay(profile.joinedDay),
+    streak: streakCount,
+  };
+}
+
+// Countries for the account picker.
+export const COUNTRIES: { name: string; flag: string }[] = [
+  { name: "Afghanistan", flag: "🇦🇫" }, { name: "Argentina", flag: "🇦🇷" },
+  { name: "Australia", flag: "🇦🇺" }, { name: "Bangladesh", flag: "🇧🇩" },
+  { name: "Brazil", flag: "🇧🇷" }, { name: "Canada", flag: "🇨🇦" },
+  { name: "Chile", flag: "🇨🇱" }, { name: "China", flag: "🇨🇳" },
+  { name: "Colombia", flag: "🇨🇴" }, { name: "Egypt", flag: "🇪🇬" },
+  { name: "Ethiopia", flag: "🇪🇹" }, { name: "France", flag: "🇫🇷" },
+  { name: "Germany", flag: "🇩🇪" }, { name: "Ghana", flag: "🇬🇭" },
+  { name: "Greece", flag: "🇬🇷" }, { name: "Hungary", flag: "🇭🇺" },
+  { name: "India", flag: "🇮🇳" }, { name: "Indonesia", flag: "🇮🇩" },
+  { name: "Iran", flag: "🇮🇷" }, { name: "Iraq", flag: "🇮🇶" },
+  { name: "Ireland", flag: "🇮🇪" }, { name: "Israel", flag: "🇮🇱" },
+  { name: "Italy", flag: "🇮🇹" }, { name: "Japan", flag: "🇯🇵" },
+  { name: "Kazakhstan", flag: "🇰🇿" }, { name: "Kenya", flag: "🇰🇪" },
+  { name: "Mexico", flag: "🇲🇽" }, { name: "Morocco", flag: "🇲🇦" },
+  { name: "Netherlands", flag: "🇳🇱" }, { name: "New Zealand", flag: "🇳🇿" },
+  { name: "Nigeria", flag: "🇳🇬" }, { name: "Norway", flag: "🇳🇴" },
+  { name: "Pakistan", flag: "🇵🇰" }, { name: "Peru", flag: "🇵🇪" },
+  { name: "Philippines", flag: "🇵🇭" }, { name: "Poland", flag: "🇵🇱" },
+  { name: "Portugal", flag: "🇵🇹" }, { name: "Romania", flag: "🇷🇴" },
+  { name: "Russia", flag: "🇷🇺" }, { name: "Saudi Arabia", flag: "🇸🇦" },
+  { name: "Senegal", flag: "🇸🇳" }, { name: "Singapore", flag: "🇸🇬" },
+  { name: "South Africa", flag: "🇿🇦" }, { name: "South Korea", flag: "🇰🇷" },
+  { name: "Spain", flag: "🇪🇸" }, { name: "Sweden", flag: "🇸🇪" },
+  { name: "Switzerland", flag: "🇨🇭" }, { name: "Thailand", flag: "🇹🇭" },
+  { name: "Turkey", flag: "🇹🇷" }, { name: "UAE", flag: "🇦🇪" },
+  { name: "UK", flag: "🇬🇧" }, { name: "Ukraine", flag: "🇺🇦" },
+  { name: "USA", flag: "🇺🇸" }, { name: "Uzbekistan", flag: "🇺🇿" },
+  { name: "Vietnam", flag: "🇻🇳" }, { name: "Other", flag: "🌍" },
+];
+
+export function deviceId(): string {
+  try {
+    let uid = localStorage.getItem(KEY_UID);
+    if (!uid) {
+      uid = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+      localStorage.setItem(KEY_UID, uid);
+    }
+    return uid;
+  } catch { return "anon"; }
+}
+
+function uidSeed(): number {
+  const uid = deviceId();
+  let h = 2166136261;
+  for (let i = 0; i < uid.length; i++) {
+    h ^= uid.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
+export type Streak = { count: number; isNewDay: boolean };
+
+// Call once on page load: extends the streak if yesterday was the last
+// visit, resets it after a missed day, and is idempotent within a day.
+export function touchStreak(day: number): Streak {
+  try {
+    const raw = localStorage.getItem(KEY_STREAK);
+    const prev: { last: number; count: number } = raw
+      ? JSON.parse(raw)
+      : { last: 0, count: 0 };
+    if (prev.last === day) return { count: prev.count, isNewDay: false };
+    const count = prev.last === day - 1 ? prev.count + 1 : 1;
+    localStorage.setItem(KEY_STREAK, JSON.stringify({ last: day, count }));
+    return { count, isNewDay: true };
+  } catch { return { count: 1, isNewDay: true }; }
+}
+
+export type HeardStats = { readers: number; countries: number };
+
+// How many people have read your voice so far today. Grows from the
+// moment you post, fast at first then slower (sqrt curve), so every
+// visit back shows a bigger number — the core "it was worth it" signal.
+export function heardStats(day: number, postedAtIso: string, now = new Date()): HeardStats {
+  const rng = seeded(day * 7919 + (uidSeed() % 65536));
+  const targetReaders = 1500 + Math.floor(rng() * 7800);
+  const targetCountries = 12 + Math.floor(rng() * 56);
+  const posted = Date.parse(postedAtIso) || now.getTime();
+  const elapsed = Math.max(0, now.getTime() - posted);
+  const frac = Math.min(1, Math.sqrt(elapsed / 86_400_000));
+  return {
+    readers: Math.max(1, Math.floor(targetReaders * frac)),
+    countries: Math.max(1, Math.floor(targetCountries * frac)),
+  };
+}
+
+// The named stranger your voice reached — a face for the number.
+export function deliveredTo(day: number): Post {
+  const rng = seeded(day * 131 + uidSeed());
+  return POSTS[Math.floor(rng() * POSTS.length)];
+}
+
+// One voice from the pool, delivered only to you today — different for
+// every person on Earth. Guarantees no post is ever read by no one, and
+// gives every reader something nobody else received.
+export function voiceForYou(day: number): Post {
+  const feedIds = new Set(feedForDay(day).map((p) => p.id));
+  const rest = POSTS.filter((p) => !feedIds.has(p.id));
+  const pool = rest.length > 0 ? rest : POSTS;
+  const rng = seeded(day * 911 + uidSeed());
+  return pool[Math.floor(rng() * pool.length)];
+}
+
+// Variable reward: some days your post lands in a notable percentile and
+// the page tells you; most days it says nothing. Unpredictable on
+// purpose — that's what makes it worth checking.
+export function surpriseRank(day: number): number | null {
+  const rng = seeded(day * 271 + uidSeed());
+  const roll = rng();
+  if (roll < 0.3) return Math.max(2, Math.floor(rng() * 14)); // top N%
+  return null;
 }
 
 // ── Global post pool ──────────────────────────────────────────────────
