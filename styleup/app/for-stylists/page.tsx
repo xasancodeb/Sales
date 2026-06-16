@@ -62,16 +62,20 @@ const TIERS = [
   },
 ];
 
-const EARNINGS_EXAMPLES = [
-  { sessions: 8, price: 250, commission: 20, label: "New stylist · 8 sessions/month" },
-  { sessions: 15, price: 300, commission: 17, label: "Silver stylist · 15 sessions/month" },
-  { sessions: 22, price: 350, commission: 15, label: "Gold stylist · 22 sessions/month" },
-  { sessions: 30, price: 400, commission: 12, label: "Elite stylist · 30 sessions/month" },
+const STYLIST_FAQS = [
+  { q: "How long does the application take?", a: "Most applicants hear back within 3 business days. The process is: application form → portfolio review → 30-min video call with our stylist success team → onboarding within 48hrs of approval." },
+  { q: "What does StyleUp handle for me?", a: "Payment processing, client acquisition (we run the marketing), booking management, dispute resolution, no-show protection, and your public stylist profile. You focus entirely on the styling." },
+  { q: "Can I set my own prices?", a: "Yes. You set your own rates for each service type. StyleUp recommends a price range based on your tier and market (London rates differ from Mumbai rates), but the decision is yours." },
+  { q: "What's the non-circumvention clause in practice?", a: "If a client books you through StyleUp and you later take them off-platform within 12 months, StyleUp can charge a fee equal to 3× the off-platform sessions. In practice, very few stylists trigger this — it's a protection, not a trap." },
+  { q: "How quickly do I get paid?", a: "Within 48 hours of a session being marked complete. Payments go to your linked bank account. No invoice needed — StyleUp generates it automatically." },
 ];
 
 export default function ForStylists() {
   const [applied, setApplied] = useState(false);
   const [form, setForm] = useState({ name: "", city: "", specialty: "", instagram: "" });
+  const [calcSessions, setCalcSessions] = useState(15);
+  const [calcPrice, setCalcPrice] = useState(300);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,26 +163,62 @@ export default function ForStylists() {
         <p className="text-sm text-center mb-8" style={{ color: "var(--dim)" }}>
           Commission drops as you grow — rewarding loyalty and volume
         </p>
-        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
-          {EARNINGS_EXAMPLES.map((e) => {
-            const gross = e.sessions * e.price;
-            const net = gross * (1 - e.commission / 100);
+        {/* Interactive calculator */}
+        <div className="card p-6 max-w-xl mx-auto">
+          <div className="mb-5">
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-semibold">Sessions per month</label>
+              <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>{calcSessions}</span>
+            </div>
+            <input
+              type="range"
+              min={4}
+              max={40}
+              value={calcSessions}
+              onChange={(e) => setCalcSessions(Number(e.target.value))}
+              className="w-full"
+              style={{ accentColor: "var(--accent)" }}
+            />
+            <div className="flex justify-between text-xs mt-1" style={{ color: "var(--faint)" }}>
+              <span>4</span><span>40</span>
+            </div>
+          </div>
+          <div className="mb-6">
+            <div className="flex justify-between mb-2">
+              <label className="text-sm font-semibold">Average session price (£)</label>
+              <span className="text-sm font-bold" style={{ color: "var(--accent)" }}>£{calcPrice}</span>
+            </div>
+            <input
+              type="range"
+              min={75}
+              max={600}
+              step={25}
+              value={calcPrice}
+              onChange={(e) => setCalcPrice(Number(e.target.value))}
+              className="w-full"
+              style={{ accentColor: "var(--accent)" }}
+            />
+            <div className="flex justify-between text-xs mt-1" style={{ color: "var(--faint)" }}>
+              <span>£75</span><span>£600</span>
+            </div>
+          </div>
+          {/* Results */}
+          {(() => {
+            const gross = calcSessions * calcPrice;
+            const tier = calcSessions >= 25 ? (calcSessions >= 22 ? "Gold (15%)" : "Silver (17%)") : "Starter (20%)";
+            const commissionRate = calcSessions >= 25 ? (calcSessions >= 22 ? 15 : 17) : 20;
+            const net = gross * (1 - commissionRate / 100);
             return (
-              <div key={e.label} className="card p-5">
-                <p className="text-xs mb-3" style={{ color: "var(--faint)" }}>{e.label}</p>
-                <p className="text-xs mb-1" style={{ color: "var(--dim)" }}>
-                  {e.sessions} sessions × £{e.price} = £{gross.toLocaleString()} gross
+              <div className="p-4 rounded-xl" style={{ background: "var(--accent-bg)" }}>
+                <p className="text-xs mb-1" style={{ color: "var(--faint)" }}>{calcSessions} sessions × £{calcPrice} at {tier}</p>
+                <p className="serif text-3xl font-bold mb-1" style={{ color: "var(--accent)" }}>£{Math.round(net).toLocaleString()}</p>
+                <p className="text-xs" style={{ color: "var(--dim)" }}>your monthly take-home after commission</p>
+                <p className="text-xs mt-2" style={{ color: "var(--faint)" }}>
+                  Gross: £{gross.toLocaleString()} · Commission: £{Math.round(gross * commissionRate / 100).toLocaleString()}
                 </p>
-                <p className="text-xs mb-2" style={{ color: "var(--faint)" }}>
-                  {e.commission}% commission = −£{(gross * e.commission / 100).toLocaleString()}
-                </p>
-                <p className="serif text-2xl font-bold" style={{ color: "var(--accent)" }}>
-                  £{net.toLocaleString()}
-                </p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--dim)" }}>your monthly take-home</p>
               </div>
             );
-          })}
+          })()}
         </div>
         <p className="text-xs text-center mt-4" style={{ color: "var(--faint)" }}>
           Going independent? Factor in: marketing costs (£500–£2K/month), payment processing (2.9%), chasing unpaid invoices, no-shows with no recourse, and zero client acquisition engine.
@@ -226,6 +266,83 @@ export default function ForStylists() {
         </div>
       </section>
 
+      {/* ── Stylist testimonials ── */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <h2 className="serif text-2xl font-bold mb-2 text-center">What stylists say</h2>
+        <p className="text-sm text-center mb-8" style={{ color: "var(--dim)" }}>From stylists who&apos;ve built their business on StyleUp</p>
+        <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+          {[
+            {
+              name: "Amara Okonkwo",
+              flag: "🇬🇧",
+              city: "London",
+              tier: "Gold",
+              sessions: 214,
+              quote: "StyleUp took my client acquisition from 'posting on Instagram and hoping' to a fully booked calendar within three months. The platform handles everything I used to dread — chasing payments, no-show disputes, all of it. I just style.",
+              gradient: ["#1A1612", "#4A3728"] as [string, string],
+            },
+            {
+              name: "Jin Park",
+              flag: "🇰🇷",
+              city: "Seoul",
+              tier: "Gold",
+              sessions: 190,
+              quote: "The commission tier model is genuinely motivating. Every 50 sessions I see my earnings per session go up. I'm now at Gold and the Elite badge is in sight. The business review with the team at 100 sessions changed how I price my services.",
+              gradient: ["#0D1B2A", "#1E6B8A"] as [string, string],
+            },
+            {
+              name: "Emma Walsh",
+              flag: "🇦🇺",
+              city: "Sydney",
+              tier: "Silver",
+              sessions: 87,
+              quote: "I was sceptical about the non-circumvention clause. Now I understand it protects me as much as the platform. I've had clients try to take me off-platform and I've been able to say no with the clause as backup — it's actually useful.",
+              gradient: ["#1E6B8A", "#4ECDC4"] as [string, string],
+            },
+          ].map((t) => (
+            <div key={t.name} className="card p-6">
+              <p className="text-sm leading-relaxed mb-4 italic" style={{ color: "var(--dim)" }}>
+                &ldquo;{t.quote}&rdquo;
+              </p>
+              <div className="flex items-center gap-3">
+                <div
+                  className="rounded-xl h-10 w-10 flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                  style={{ background: `linear-gradient(135deg, ${t.gradient[0]}, ${t.gradient[1]})` }}
+                >
+                  {t.name[0]}
+                </div>
+                <div>
+                  <p className="font-semibold text-sm">{t.flag} {t.name}</p>
+                  <p className="text-xs" style={{ color: "var(--faint)" }}>{t.city} · {t.tier} · {t.sessions} sessions</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── Application timeline ── */}
+      <section style={{ background: "var(--dark)", color: "#fff" }} className="py-20">
+        <div className="max-w-5xl mx-auto px-6">
+          <h2 className="serif text-2xl font-bold mb-2 text-center">What happens after you apply</h2>
+          <p className="text-sm text-center mb-10" style={{ color: "rgba(255,255,255,0.5)" }}>From application to first booking in under a week</p>
+          <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+            {[
+              { day: "Day 1", title: "Application review", body: "We review your form, portfolio links, and specialty. Most applications are assessed within 24 hours by our stylist success team." },
+              { day: "Day 2–3", title: "Video call", body: "A 30-minute call with our team. We want to understand your style philosophy, client experience, and what you're hoping to build with StyleUp." },
+              { day: "Day 4", title: "Approval & onboarding", body: "Approved stylists get access to the stylist portal, a profile setup guide, and their first mock booking to test the system." },
+              { day: "Day 5–7", title: "Profile live + first booking", body: "Your profile goes live on the marketplace. Many stylists receive their first enquiry within 48 hours of going live." },
+            ].map((step) => (
+              <div key={step.day} className="p-5 rounded-2xl" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <p className="mono text-xs mb-2" style={{ color: "var(--accent)" }}>{step.day}</p>
+                <p className="font-semibold mb-2">{step.title}</p>
+                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.55)", lineHeight: 1.6 }}>{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Anti-circumvention — framed as protection for stylists */}
       <section style={{ background: "var(--accent-bg)", borderTop: "1px solid var(--border)", borderBottom: "1px solid var(--border)" }} className="py-20">
         <div className="max-w-3xl mx-auto px-6">
@@ -261,6 +378,30 @@ export default function ForStylists() {
           <p className="text-xs text-center mt-6" style={{ color: "var(--faint)" }}>
             Stylists who circumvent the platform — taking clients directly after a StyleUp introduction — are suspended and may face a fee equal to 3× the value of sessions conducted off-platform.
           </p>
+        </div>
+      </section>
+
+      {/* ── Stylist FAQ ── */}
+      <section id="stylist-faq" className="max-w-3xl mx-auto px-6 pb-20">
+        <h2 className="serif text-2xl font-bold mb-2 text-center">Your questions answered</h2>
+        <p className="text-sm text-center mb-8" style={{ color: "var(--dim)" }}>What stylists ask us most before joining</p>
+        <div className="flex flex-col gap-2">
+          {STYLIST_FAQS.map((faq, i) => (
+            <div key={i} className="card overflow-hidden">
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full text-left px-5 py-4 flex items-center justify-between"
+              >
+                <span className="font-semibold text-sm">{faq.q}</span>
+                <span className="text-lg" style={{ color: "var(--faint)", transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform 0.2s", display: "inline-block" }}>+</span>
+              </button>
+              {openFaq === i && (
+                <div className="px-5 pb-4 text-sm leading-relaxed fade-up" style={{ color: "var(--dim)" }}>
+                  {faq.a}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       </section>
 
