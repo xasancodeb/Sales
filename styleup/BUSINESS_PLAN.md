@@ -147,6 +147,42 @@ Drawing on the same behavioural principles as leading consumer apps:
 
 ---
 
+## The Uber Model — Why StyleUp Keeps Winning
+
+Uber is a logistics company. They don't own cars, hire drivers, or service vehicles. They own:
+1. **The demand engine** — millions of riders who open the app
+2. **The trust infrastructure** — ratings, reviews, payment rails, dispute resolution
+3. **The data** — who rides where, when, how much they'll pay
+4. **The brand** — "call an Uber" is now a verb
+
+StyleUp is the same architecture applied to personal styling:
+
+| Uber | StyleUp |
+|------|---------|
+| Doesn't own cars | Doesn't employ stylists |
+| Drivers need Uber's demand | Stylists need StyleUp's clients |
+| Surge pricing | Peak-day rates (Saturday premium) |
+| Driver ratings stay on Uber | Stylist reviews are non-transferable |
+| Payment handled in-app | Invoicing, deposits, payouts all in-platform |
+| Uber Pro for top drivers | StyleUp Elite for top stylists (12% commission) |
+| Driver can't take rider directly | 12-month non-circumvention clause |
+
+**Why stylists can't leave:** Their 200-review profile doesn't exist anywhere else. Their client history is in our system. Their payment protection, no-show coverage, and dispute handling only exist on StyleUp. Going independent means: zero reviews, no payment guarantee, no no-show protection, and a cold-start client acquisition problem.
+
+**Why top stylists stay:** As volume grows, commission drops (20% → 12%). A Gold stylist on £300 average bookings doing 22 sessions/month earns £5,610/month. At Elite they'd earn £6,336. We're paying them more, not less, for loyalty. This is the anti-defection engine.
+
+**Anti-circumvention mechanics (built into the product):**
+1. Contact details released 24hrs before session only (both sides protected)
+2. All payments through platform — stylists can't invoice clients directly
+3. Reviews tied to platform bookings — can't export or replicate elsewhere
+4. 12-month non-solicitation clause in Stylist ToS
+5. Violation = suspension + 3× session value fee
+6. Clients who go direct lose platform payment protection and dispute rights
+
+**Network effects:** More clients → more demand for stylists → better stylists join → better stylists attract more clients. Once at critical mass in a city, no competitor can enter without matching both sides simultaneously.
+
+---
+
 ## What's Built (MVP)
 
 The prototype in this repository includes:

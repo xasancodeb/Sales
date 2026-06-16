@@ -1,4 +1,4 @@
-name: Deploy ONE to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
@@ -19,14 +19,30 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+
+      # ── Build ONE ──────────────────────────────────────────────────
       - run: npm ci
       - run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /Sales
+
+      # ── Build StyleUp ──────────────────────────────────────────────
+      - run: npm ci
+        working-directory: styleup
+      - run: npm run build
+        working-directory: styleup
+        env:
+          NEXT_PUBLIC_BASE_PATH: /Sales/styleup
+
+      # ── Combine into one artifact ──────────────────────────────────
+      # ONE lives at /Sales, StyleUp nested at /Sales/styleup
+      - run: mkdir -p out/styleup && cp -r styleup/out/. out/styleup/
+
       - uses: actions/configure-pages@v5
         with:
           enablement: true

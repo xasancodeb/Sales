@@ -54,6 +54,7 @@ export default function Landing() {
         <div className="flex items-center gap-4 text-sm">
           <Link href="/explore" style={{ color: "var(--dim)" }}>Find stylists</Link>
           <Link href="/fitting" style={{ color: "var(--dim)" }}>Fitting room</Link>
+          <Link href="/for-stylists" style={{ color: "var(--dim)" }}>For stylists</Link>
           {mounted && hasBooking ? (
             <Link href="/dashboard" className="btn-primary" style={{ padding: "8px 18px", fontSize: 13 }}>
               My bookings
@@ -213,6 +214,8 @@ export default function Landing() {
           <Link href="/fitting">Colour room</Link>
           <Link href="/quiz">Style quiz</Link>
           <Link href="/dashboard">Dashboard</Link>
+          <Link href="/for-stylists">For stylists</Link>
+          <Link href="/stylist-portal">Stylist portal</Link>
         </div>
         <p>© 2026 StyleUp · Personal styling, everywhere</p>
       </footer>
