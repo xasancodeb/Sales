@@ -109,3 +109,36 @@ input, textarea, select {
 }
 
 .star { color: var(--accent); }
+
+/* ── Mobile responsive utilities ── */
+@media (max-width: 640px) {
+  .hidden-mobile { display: none !important; }
+  .show-mobile { display: flex !important; }
+
+  /* Hero headings */
+  .hero-title { font-size: 2.5rem !important; }
+
+  /* Nav */
+  nav .btn-primary,
+  nav .btn-accent { padding: 8px 14px !important; font-size: 12px !important; }
+
+  /* Cards */
+  .card { border-radius: 12px; }
+
+  /* Fitting room — stack the two columns */
+  .fitting-grid { grid-template-columns: 1fr !important; }
+
+  /* Stylist profile — stack main + sidebar */
+  .stylist-grid { grid-template-columns: 1fr !important; }
+
+  /* Portal sidebar — collapse */
+  .portal-sidebar { display: none !important; }
+  .portal-main { padding: 16px !important; }
+
+  /* Full-width buttons on mobile */
+  .mobile-full-width { width: 100% !important; }
+}
+
+@media (min-width: 641px) {
+  .show-mobile { display: none !important; }
+}

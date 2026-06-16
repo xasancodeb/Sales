@@ -417,7 +417,7 @@ export default function FittingRoom() {
       {/* ── Outfit Builder ── */}
       {activeTab === "builder" && (
         <>
-          <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 1fr" }}>
+          <div className="fitting-grid grid gap-6" style={{ gridTemplateColumns: "1fr 1fr" }}>
             {/* Avatar */}
             <div className="card p-6 flex flex-col items-center">
               <p className="text-xs font-semibold mb-3 self-start" style={{ color: "var(--faint)" }}>SKIN TONE</p>

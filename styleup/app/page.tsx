@@ -67,6 +67,7 @@ export default function Landing() {
   const [hasBooking, setHasBooking] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -77,22 +78,50 @@ export default function Landing() {
     <main style={{ minHeight: "100vh" }}>
 
       {/* ── Nav ── */}
-      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto relative">
         <p className="serif font-bold text-xl tracking-tight">StyleUp</p>
-        <div className="flex items-center gap-4 text-sm">
+        {/* Desktop nav */}
+        <div className="hidden-mobile flex items-center gap-4 text-sm">
           <Link href="/explore" style={{ color: "var(--dim)" }}>Find stylists</Link>
           <Link href="/fitting" style={{ color: "var(--dim)" }}>Fitting room</Link>
           <Link href="/for-stylists" style={{ color: "var(--dim)" }}>For stylists</Link>
           {mounted && hasBooking ? (
-            <Link href="/dashboard" className="btn-primary" style={{ padding: "8px 18px", fontSize: 13 }}>
-              My bookings
-            </Link>
+            <Link href="/dashboard" className="btn-primary" style={{ padding: "8px 18px", fontSize: 13 }}>My bookings</Link>
           ) : (
-            <Link href="/quiz" className="btn-accent" style={{ padding: "8px 18px", fontSize: 13 }}>
-              Find my style
-            </Link>
+            <Link href="/quiz" className="btn-accent" style={{ padding: "8px 18px", fontSize: 13 }}>Find my style</Link>
           )}
         </div>
+        {/* Mobile menu button */}
+        <button
+          className="show-mobile"
+          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+          aria-label="Menu"
+          style={{ fontSize: 22, background: "none", border: "none", color: "var(--ink)" }}
+        >
+          {mobileMenuOpen ? "✕" : "☰"}
+        </button>
+        {/* Mobile dropdown */}
+        {mobileMenuOpen && (
+          <div className="show-mobile absolute top-full left-0 right-0 z-50 px-4 pb-4 shadow-lg" style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+            <div className="flex flex-col gap-1 pt-2">
+              {[
+                { href: "/explore", label: "Find stylists" },
+                { href: "/fitting", label: "Fitting room" },
+                { href: "/for-stylists", label: "For stylists" },
+                { href: "/dashboard", label: "Dashboard" },
+              ].map((l) => (
+                <Link key={l.href} href={l.href} onClick={() => setMobileMenuOpen(false)}
+                  className="block px-3 py-3 rounded-lg text-sm font-medium"
+                  style={{ color: "var(--ink)" }}>
+                  {l.label}
+                </Link>
+              ))}
+              <Link href="/quiz" onClick={() => setMobileMenuOpen(false)} className="btn-accent text-center mt-2">
+                Find my style
+              </Link>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* ── Hero ── */}

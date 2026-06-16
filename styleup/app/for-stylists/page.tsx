@@ -99,7 +99,7 @@ export default function ForStylists() {
 
       {/* Hero */}
       <section className="max-w-5xl mx-auto px-6 pt-16 pb-20">
-        <div className="grid gap-12 items-center" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <div className="grid gap-12 items-center" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))" }}>
           <div>
             <div className="chip mb-5 w-fit">For professional stylists</div>
             <h1 className="serif text-5xl font-bold leading-tight mb-6" style={{ letterSpacing: "-0.03em" }}>

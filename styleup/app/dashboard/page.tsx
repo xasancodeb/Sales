@@ -219,7 +219,7 @@ export default function Dashboard() {
 
       {/* Stats */}
       {bookings.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-8">
+        <div className="grid gap-3 mb-8" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))" }}>
           <div className="card p-4 text-center">
             <p className="serif text-2xl font-bold" style={{ color: "var(--accent)" }}>
               {upcoming.length + past.length}

@@ -319,7 +319,7 @@ export default function StylistClient() {
         <Link href="/" className="serif font-bold text-lg">StyleUp</Link>
       </div>
 
-      <div className="grid gap-8" style={{ gridTemplateColumns: "1fr auto", alignItems: "start" }}>
+      <div className="stylist-grid grid gap-8" style={{ gridTemplateColumns: "1fr auto", alignItems: "start" }}>
         <div>
           <div
             className="rounded-2xl h-40 w-40 flex items-center justify-center text-5xl font-bold text-white mb-5"
@@ -399,7 +399,7 @@ export default function StylistClient() {
           </div>
         </div>
 
-        <div style={{ width: 340, position: "sticky", top: 24, flexShrink: 0 }}>
+        <div style={{ width: 340, maxWidth: "100%", position: "sticky", top: 24, flexShrink: 0 }}>
           <BookingPanel />
           {step === "idle" && (
             <div className="card p-5 mt-4">
