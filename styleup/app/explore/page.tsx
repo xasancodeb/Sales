@@ -71,10 +71,21 @@ function ExploreInner() {
   }, [search, specialty, sessionType, maxPrice, sortBy]);
 
   return (
-    <main style={{ minHeight: "100vh" }} className="max-w-5xl mx-auto px-6 pb-20">
+    <main style={{ minHeight: "100vh" }}>
+      {/* Nav */}
+      <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto">
+        <Link href="/" className="serif font-bold text-xl tracking-tight">StyleUp</Link>
+        <div className="flex items-center gap-4 text-sm">
+          <Link href="/explore" style={{ color: "var(--dim)" }}>Find stylists</Link>
+          <Link href="/fitting" style={{ color: "var(--dim)" }}>Fitting room</Link>
+          <Link href="/for-stylists" style={{ color: "var(--dim)" }}>For stylists</Link>
+          <Link href="/dashboard" className="btn-primary" style={{ padding: "8px 18px", fontSize: 13 }}>Dashboard</Link>
+        </div>
+      </nav>
+
+      <div className="max-w-5xl mx-auto px-6 pb-20">
       {/* Header */}
-      <header className="pt-10 pb-6">
-        <Link href="/" className="serif font-bold text-xl tracking-tight block mb-6">StyleUp</Link>
+      <header className="pt-6 pb-6">
         <h1 className="serif text-3xl font-bold mb-1">Find your stylist</h1>
         <p className="text-sm" style={{ color: "var(--dim)" }}>
           {STYLISTS.length} stylists · across 10 cities · ready to book
@@ -216,6 +227,7 @@ function ExploreInner() {
           </button>
         </div>
       )}
+      </div>
     </main>
   );
 }
