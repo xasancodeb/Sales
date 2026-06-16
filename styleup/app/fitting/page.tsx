@@ -300,6 +300,7 @@ export default function FittingRoom() {
   const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
+    document.title = "Colour Fitting Room — StyleUp";
     const p = loadProfile();
     if (p?.season) setSeason(p.season);
     setSavedOutfits(loadSavedOutfits());
@@ -558,6 +559,7 @@ export default function FittingRoom() {
                         key={c.hex}
                         onClick={() => setColor(c.hex)}
                         title={c.name}
+                        aria-label={c.name}
                         className="rounded-lg transition-transform hover:scale-110"
                         style={{
                           width: "100%",
@@ -600,6 +602,7 @@ export default function FittingRoom() {
                     <button
                       key={c}
                       onClick={() => setColor(c)}
+                      aria-label={c}
                       className="rounded transition-transform hover:scale-110"
                       style={{
                         width: "100%",

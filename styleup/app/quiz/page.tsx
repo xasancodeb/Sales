@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ARCHETYPES } from "@/lib/data";
 
 const QUESTIONS = [
@@ -79,14 +79,31 @@ export default function StyleQuiz() {
   const [answers, setAnswers] = useState<string[]>([]);
   const [result, setResult] = useState<string>("");
 
+  useEffect(() => {
+    document.title = "Style Quiz — Find Your Archetype · StyleUp";
+  }, []);
+
   const pick = (val: string) => {
     const next = [...answers, val];
     setAnswers(next);
     if (qIndex + 1 < QUESTIONS.length) {
       setQIndex(qIndex + 1);
     } else {
-      setResult(tally(next));
+      const archetypeResult = tally(next);
+      setResult(archetypeResult);
       setStep("result");
+      // Save to localStorage for dashboard
+      try {
+        localStorage.setItem("styleup_archetype", archetypeResult);
+        // Also update profile if it exists
+        const profileRaw = localStorage.getItem("styleup_profile");
+        if (profileRaw) {
+          const profile = JSON.parse(profileRaw);
+          localStorage.setItem("styleup_profile", JSON.stringify({ ...profile, archetype: archetypeResult, quizDone: true }));
+        }
+      } catch {
+        // ignore
+      }
     }
   };
 

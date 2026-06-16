@@ -110,7 +110,10 @@ export default function StylistPortal() {
   const [clientNotes, setClientNotes] = useState<Record<string, string>>({});
   const [editingNote, setEditingNote] = useState<string | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    document.title = "Stylist Portal — StyleUp";
+    setMounted(true);
+  }, []);
 
   const thisMonthGross = UPCOMING_BOOKINGS.reduce((s, b) => s + b.price, 0) +
     RECENT_SESSIONS.slice(0, 3).reduce((s, r) => s + r.earned / (1 - SIMULATED_STYLIST.commission / 100), 0);

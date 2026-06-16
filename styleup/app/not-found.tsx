@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 
 export default function NotFound() {
+  useEffect(() => {
+    document.title = "Page Not Found — StyleUp";
+  }, []);
+
   return (
     <main style={{ minHeight: "100vh", background: "var(--bg)" }}>
       {/* Nav */}

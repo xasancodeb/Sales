@@ -149,6 +149,7 @@ export default function Dashboard() {
   const reload = () => setBookings(getBookings());
 
   useEffect(() => {
+    document.title = "My Dashboard — StyleUp";
     setMounted(true);
     reload();
     const p = loadProfile();

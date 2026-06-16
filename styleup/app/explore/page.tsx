@@ -22,6 +22,11 @@ function ExploreInner() {
   const [search, setSearch] = useState("");
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"rating" | "bookings" | "price">("rating");
+  const [availableToday, setAvailableToday] = useState(false);
+
+  useEffect(() => {
+    document.title = "Find a Stylist — StyleUp";
+  }, []);
 
   useEffect(() => {
     const t = params.get("type") as SessionType | null;
@@ -59,6 +64,10 @@ function ExploreInner() {
       );
     }
 
+    if (availableToday) {
+      list = list.filter((s) => s.available_today);
+    }
+
     list.sort((a, b) => {
       if (sortBy === "rating") return b.rating - a.rating;
       if (sortBy === "bookings") return b.bookings - a.bookings;
@@ -68,7 +77,7 @@ function ExploreInner() {
     });
 
     return list;
-  }, [search, specialty, sessionType, maxPrice, sortBy]);
+  }, [search, specialty, sessionType, maxPrice, sortBy, availableToday]);
 
   return (
     <main style={{ minHeight: "100vh" }}>
@@ -137,11 +146,17 @@ function ExploreInner() {
           </select>
           {/* Availability badge */}
           <button
-            onClick={() => {}}
+            onClick={() => setAvailableToday(!availableToday)}
             className="text-sm rounded-lg px-3 py-2 transition-colors"
-            style={{ border: "1px solid var(--border)", color: "var(--dim)" }}
+            style={{
+              border: `1px solid ${availableToday ? "var(--accent)" : "var(--border)"}`,
+              background: availableToday ? "var(--accent-bg)" : "transparent",
+              color: availableToday ? "var(--accent)" : "var(--dim)",
+              fontWeight: availableToday ? 600 : 400,
+            }}
+            aria-pressed={availableToday}
           >
-            Available today
+            {availableToday ? "✓ " : ""}Available today
           </button>
         </div>
       </div>
@@ -220,7 +235,7 @@ function ExploreInner() {
           <p className="text-lg font-semibold mb-2">No stylists match your filters</p>
           <p className="text-sm mb-4" style={{ color: "var(--dim)" }}>Try broadening your search or changing the session type</p>
           <button
-            onClick={() => { setSearch(""); setSpecialty("All"); setSessionType("all"); }}
+            onClick={() => { setSearch(""); setSpecialty("All"); setSessionType("all"); setAvailableToday(false); }}
             className="btn-secondary"
           >
             Clear filters

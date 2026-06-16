@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const TIERS = [
   {
@@ -76,6 +76,10 @@ export default function ForStylists() {
   const [calcSessions, setCalcSessions] = useState(15);
   const [calcPrice, setCalcPrice] = useState(300);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  useEffect(() => {
+    document.title = "Join as a Stylist — StyleUp";
+  }, []);
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
