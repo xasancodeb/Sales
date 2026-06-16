@@ -364,9 +364,9 @@ export default function Landing() {
           <div className="pt-6 flex flex-wrap items-center justify-between gap-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--faint)" }}>
             <p>© 2026 StyleUp · Personal styling, everywhere</p>
             <div className="flex gap-4">
-              <span>Privacy policy</span>
-              <span>Terms of service</span>
-              <span>Stylist terms</span>
+              <Link href="/privacy">Privacy policy</Link>
+              <Link href="/terms">Terms of service</Link>
+              <Link href="/terms#stylist-terms">Stylist terms</Link>
             </div>
           </div>
         </div>

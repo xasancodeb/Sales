@@ -480,7 +480,7 @@ export default function ForStylists() {
               </button>
               <p className="text-xs text-center" style={{ color: "var(--faint)" }}>
                 By applying you confirm you&apos;ve read and agree to our{" "}
-                <span style={{ color: "var(--accent)" }}>Stylist Terms of Service</span>,
+                <Link href="/terms#stylist-terms" style={{ color: "var(--accent)" }}>Stylist Terms of Service</Link>,
                 including the non-circumvention clause.
               </p>
             </div>
@@ -494,6 +494,7 @@ export default function ForStylists() {
           <Link href="/">Client home</Link>
           <Link href="/explore">Browse stylists</Link>
           <Link href="/stylist-portal">Stylist portal</Link>
+          <Link href="/terms#stylist-terms">Stylist terms</Link>
         </div>
         <p>© 2026 StyleUp · Personal styling, everywhere</p>
       </footer>
