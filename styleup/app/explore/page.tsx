@@ -88,7 +88,7 @@ function ExploreInner() {
       <header className="pt-6 pb-6">
         <h1 className="serif text-3xl font-bold mb-1">Find your stylist</h1>
         <p className="text-sm" style={{ color: "var(--dim)" }}>
-          {STYLISTS.length} stylists · across 10 cities · ready to book
+          {STYLISTS.length} stylists · across 12 cities · ready to book
         </p>
       </header>
 
