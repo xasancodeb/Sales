@@ -8,11 +8,20 @@ import { ARCHETYPES, getStylist, SESSION_TYPES } from "@/lib/data";
 
 // ── Milestones ─────────────────────────────────────────────────────────
 const MILESTONES = [
-  { count: 1,  label: "First session!",   desc: "You started your style journey" },
-  { count: 3,  label: "Getting stylish",  desc: "Three sessions in — you mean business" },
-  { count: 5,  label: "Style devotee",    desc: "Five sessions — style is your language" },
-  { count: 10, label: "Style guru",       desc: "Ten sessions — you inspire others" },
+  { count: 1,  label: "First session! 🎉",  desc: "You started your style journey" },
+  { count: 3,  label: "Getting stylish ✦",  desc: "Three sessions in — you mean business" },
+  { count: 5,  label: "Style devotee 🌟",   desc: "Five sessions — style is your language" },
+  { count: 10, label: "Style guru 👑",      desc: "Ten sessions — you inspire others" },
+  { count: 15, label: "StyleUp VIP 💎",     desc: "Fifteen sessions — you're elite" },
 ];
+
+// ── Season insights ─────────────────────────────────────────────────────
+const SEASON_INSIGHTS: Record<string, { heading: string; tip: string }> = {
+  spring: { heading: "Spring types shine in warm, clear colours", tip: "Your power move: a warm coral or golden yellow piece as your statement. Avoid icy blues and pure black — they dull your natural warmth." },
+  summer: { heading: "Summer types are built for soft contrast", tip: "Your power move: dusty rose, powder blue, or lavender near your face. Avoid harsh black-and-white contrast — go for navy-and-cream instead." },
+  autumn: { heading: "Autumn types own the earth palette", tip: "Your power move: rust, camel, or olive as your base. A cognac leather piece is your secret weapon. Avoid anything icy or neon." },
+  winter: { heading: "Winter types command with high contrast", tip: "Your power move: pure white or true black with one bold jewel tone. Navy + emerald or burgundy + ice blue are your signatures. Avoid warm earth tones." },
+};
 
 // ── Season recommendations ──────────────────────────────────────────────
 const SEASON_RECOMMENDS: Record<ColorSeason, { item: string; desc: string }[]> = {
@@ -124,13 +133,18 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
             )
           )}
           {booking.status === "completed" && (
-            <Link
-              href={`/stylist/${booking.stylistId}`}
-              className="text-xs"
-              style={{ color: "var(--accent)" }}
-            >
-              Book again →
-            </Link>
+            <div className="flex gap-3">
+              <Link
+                href={`/stylist/${booking.stylistId}?service=${encodeURIComponent(booking.serviceName)}`}
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg"
+                style={{ background: "var(--accent)", color: "#fff" }}
+              >
+                Rebook →
+              </Link>
+              <Link href={`/stylist/${booking.stylistId}`} className="text-xs" style={{ color: "var(--faint)" }}>
+                View profile
+              </Link>
+            </div>
           )}
         </div>
       </div>
@@ -286,6 +300,33 @@ export default function Dashboard() {
               Open fitting room →
             </Link>
           </div>
+        </div>
+      )}
+
+      {/* Colour season review nudge */}
+      {season && past.length > 0 && (
+        <div className="text-xs mt-2 px-3 py-2 rounded-lg mb-4" style={{ background: "var(--accent-bg)", color: "var(--dim)" }}>
+          💡 Colour season reviews are recommended every 6 sessions.{" "}
+          {past.length < 6
+            ? `You're ${6 - past.length} session${6 - past.length !== 1 ? "s" : ""} away from your next colour review.`
+            : "You're due for a colour season check — book a colour analysis session."}
+          {past.length >= 6 && (
+            <Link href="/fitting" className="ml-1 font-semibold" style={{ color: "var(--accent)" }}>
+              Update your season →
+            </Link>
+          )}
+        </div>
+      )}
+
+      {/* Season insight card */}
+      {season && SEASON_INSIGHTS[season] && (
+        <div className="card p-5 mb-6">
+          <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>YOUR SEASON INSIGHT</p>
+          <p className="font-semibold text-sm mb-2">{SEASON_INSIGHTS[season].heading}</p>
+          <p className="text-sm leading-relaxed" style={{ color: "var(--dim)", lineHeight: 1.6 }}>{SEASON_INSIGHTS[season].tip}</p>
+          <Link href="/fitting" className="text-xs mt-3 block" style={{ color: "var(--accent)" }}>
+            Open fitting room to try your colours →
+          </Link>
         </div>
       )}
 
@@ -502,15 +543,19 @@ export default function Dashboard() {
       )}
 
       {/* Empty state */}
-      {bookings.length === 0 && !season && !archetypeData && (
-        <div className="text-center py-10">
+      {bookings.length === 0 && !season && (
+        <div className="text-center py-8">
+          <p className="text-4xl mb-4">✦</p>
           <p className="serif text-xl font-bold mb-2">Welcome to StyleUp</p>
-          <p className="text-sm mb-6" style={{ color: "var(--dim)" }}>
-            Start by finding your style archetype or browsing our stylists.
+          <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: "var(--dim)", lineHeight: 1.6 }}>
+            Your style journey starts here. Take the quiz to find your archetype, then discover your colour season in the fitting room.
           </p>
-          <div className="flex justify-center gap-3">
-            <Link href="/quiz" className="btn-primary">Take the style quiz</Link>
-            <Link href="/explore" className="btn-secondary">Browse stylists</Link>
+          <div className="flex flex-col gap-3 max-w-xs mx-auto">
+            <Link href="/quiz" className="btn-primary text-center">Find my style archetype →</Link>
+            <Link href="/fitting" className="btn-secondary text-center">Discover my colour season →</Link>
+            <Link href="/explore" className="text-sm text-center" style={{ color: "var(--faint)" }}>
+              Skip straight to booking a stylist
+            </Link>
           </div>
         </div>
       )}
