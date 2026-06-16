@@ -6,6 +6,31 @@ import { useEffect, useState } from "react";
 import { getStylist, SESSION_TYPES, Service, Stylist } from "@/lib/data";
 import { addBooking, availableSlots, formatDate, nextAvailableDates } from "@/lib/booking";
 
+function getSpecialtyIcon(specialty: string): string {
+  const map: Record<string, string> = {
+    "Minimalist": "○",
+    "Classic": "◈",
+    "Streetwear": "◆",
+    "Luxury": "✦",
+    "Bohemian": "✿",
+    "Edgy": "◬",
+    "Sustainable": "♻",
+    "Modest Fashion": "☾",
+    "Bold Colour": "◉",
+    "K-Fashion": "✸",
+  };
+  return map[specialty] ?? "·";
+}
+
+function getPortfolioDescription(label: string): string {
+  const map: Record<string, string> = {
+    "The London Capsule": "A timeless work-to-weekend palette anchored in charcoal and cream",
+    "Office Power": "Sharp corporate dressing for high-stakes environments",
+    "Weekend Edit": "Relaxed Saturday energy with a considered colour story",
+  };
+  return map[label] ?? `Curated colour harmony for ${label}`;
+}
+
 function StarRating({ rating, count }: { rating: number; count?: number }) {
   return (
     <span className="star">
@@ -308,23 +333,29 @@ export default function StylistClient() {
               <h1 className="serif text-3xl font-bold mb-1">{stylist.flag} {stylist.name}</h1>
               <p className="text-sm" style={{ color: "var(--dim)" }}>{stylist.city}, {stylist.country}</p>
             </div>
-            {stylist.available_today && (
-              <span className="text-xs px-3 py-1.5 rounded-full font-medium"
-                style={{ background: "#E8F5E9", color: "#2D7A4F", marginTop: 4 }}>
-                Available today
-              </span>
-            )}
           </div>
 
           <div className="flex flex-wrap gap-2 mb-3">
             {stylist.specialty.map((sp) => (
-              <span key={sp} className="chip">{sp}</span>
+              <span key={sp} className="chip">{getSpecialtyIcon(sp)} {sp}</span>
             ))}
           </div>
 
-          <div className="flex items-center gap-4 mb-6">
+          <div className="flex items-center gap-4 mb-3 flex-wrap">
             <StarRating rating={stylist.rating} count={stylist.reviews_count} />
             <span className="text-sm" style={{ color: "var(--faint)" }}>{stylist.bookings.toLocaleString()} sessions</span>
+            <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+              ⚡ Replies {stylist.response_time}
+            </span>
+          </div>
+
+          <div className="mb-6">
+            {stylist.available_today && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium" style={{ color: "#2D7A4F" }}>
+                <span className="rounded-full" style={{ width: 8, height: 8, background: "#2D7A4F", display: "inline-block" }} />
+                Available today
+              </span>
+            )}
           </div>
 
           <p className="text-base italic mb-6 serif" style={{ color: "var(--dim)" }}>&ldquo;{stylist.tagline}&rdquo;</p>
@@ -354,6 +385,7 @@ export default function StylistClient() {
                       />
                     ))}
                   </div>
+                  <p className="text-xs mt-2" style={{ color: "var(--faint)" }}>{getPortfolioDescription(p.label)}</p>
                 </div>
               ))}
             </div>
@@ -372,13 +404,16 @@ export default function StylistClient() {
           {step === "idle" && (
             <div className="card p-5 mt-4">
               <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>SESSIONS OFFERED</p>
-              {stylist.services.map((sv) => {
+              {stylist.services.map((sv, index) => {
                 const ti = typeInfo(sv.type);
+                const shareWeights = [0.35, 0.30, 0.25, 0.10];
+                const clientCount = Math.round(stylist.bookings * (shareWeights[index] ?? 0.10));
                 return (
                   <div key={sv.name} className="flex items-center justify-between py-2.5" style={{ borderBottom: "1px solid var(--border)" }}>
                     <div>
                       <p className="text-sm font-semibold">{ti.icon} {sv.name}</p>
                       <p className="text-xs" style={{ color: "var(--faint)" }}>{sv.duration}</p>
+                      <span className="text-xs" style={{ color: "var(--faint)" }}>{clientCount} clients booked</span>
                     </div>
                     <p className="text-sm font-bold">{sv.currency}{sv.price.toLocaleString()}</p>
                   </div>
