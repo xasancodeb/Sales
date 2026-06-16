@@ -4,7 +4,39 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Booking, cancelBooking, formatDate, getBookings } from "@/lib/booking";
 import { ColorSeason, PALETTES, loadProfile } from "@/lib/profile";
-import { getStylist, SESSION_TYPES } from "@/lib/data";
+import { ARCHETYPES, getStylist, SESSION_TYPES } from "@/lib/data";
+
+// ── Milestones ─────────────────────────────────────────────────────────
+const MILESTONES = [
+  { count: 1,  label: "First session!",   desc: "You started your style journey" },
+  { count: 3,  label: "Getting stylish",  desc: "Three sessions in — you mean business" },
+  { count: 5,  label: "Style devotee",    desc: "Five sessions — style is your language" },
+  { count: 10, label: "Style guru",       desc: "Ten sessions — you inspire others" },
+];
+
+// ── Season recommendations ──────────────────────────────────────────────
+const SEASON_RECOMMENDS: Record<ColorSeason, { item: string; desc: string }[]> = {
+  spring: [
+    { item: "Coral wrap dress",     desc: "Flatters your warm, bright undertones" },
+    { item: "Golden jewellery",     desc: "Amplifies your natural warmth" },
+    { item: "Warm-toned blazer",    desc: "Peach or apricot keeps your glow" },
+  ],
+  summer: [
+    { item: "Lavender midi skirt",  desc: "Cool hues that harmonise with your softness" },
+    { item: "Silver accessories",   desc: "Cool metals suit your palette perfectly" },
+    { item: "Dusty blue coat",      desc: "Muted tones elevate your delicate colouring" },
+  ],
+  autumn: [
+    { item: "Rust-toned knitwear",  desc: "Earth tones that match your rich palette" },
+    { item: "Camel trench coat",    desc: "A classic that sings in your warm range" },
+    { item: "Olive tailored trousers", desc: "Muted greens that bring depth and warmth" },
+  ],
+  winter: [
+    { item: "Navy power suit",      desc: "High contrast that matches your bold colouring" },
+    { item: "Emerald statement piece", desc: "Jewel tones amplify your cool clarity" },
+    { item: "Classic black coat",   desc: "The ultimate winter signature — pure and striking" },
+  ],
+};
 
 function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => void }) {
   const [confirming, setConfirming] = useState(false);
@@ -109,7 +141,10 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
 export default function Dashboard() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [season, setSeason] = useState<ColorSeason | null>(null);
+  const [archetype, setArchetype] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [copiedShare, setCopiedShare] = useState(false);
+  const [copiedReferral, setCopiedReferral] = useState(false);
 
   const reload = () => setBookings(getBookings());
 
@@ -118,6 +153,12 @@ export default function Dashboard() {
     reload();
     const p = loadProfile();
     if (p?.season) setSeason(p.season);
+    if (p?.archetype) setArchetype(p.archetype);
+    // Also check standalone archetype key
+    const rawArchetype = typeof window !== "undefined"
+      ? localStorage.getItem("styleup_archetype")
+      : null;
+    if (rawArchetype && !p?.archetype) setArchetype(rawArchetype);
   }, []);
 
   const upcoming = bookings.filter((b) => b.status === "upcoming");
@@ -125,6 +166,41 @@ export default function Dashboard() {
   const cancelled = bookings.filter((b) => b.status === "cancelled");
   const totalSpend = [...upcoming, ...past].reduce((s, b) => s + b.price, 0);
   const uniqueStylists = new Set([...upcoming, ...past].map((b) => b.stylistId)).size;
+
+  // Milestones
+  const sessionCount = upcoming.length + past.length;
+  const achievedMilestone = [...MILESTONES].reverse().find((m) => sessionCount >= m.count) ?? null;
+  const nextMilestone = MILESTONES.find((m) => sessionCount < m.count) ?? null;
+  const milestoneProgress = nextMilestone
+    ? Math.round(((sessionCount - (achievedMilestone?.count ?? 0)) / (nextMilestone.count - (achievedMilestone?.count ?? 0))) * 100)
+    : 100;
+
+  // Archetype data
+  const archetypeData = archetype
+    ? ARCHETYPES.find((a) => a.id === archetype.toLowerCase() || a.name.toLowerCase() === archetype.toLowerCase())
+    : null;
+
+  // Share season text
+  const handleShareSeason = () => {
+    if (!season) return;
+    const pal = PALETTES[season];
+    const top3 = pal.colors.slice(0, 3).map((c) => c.name).join(", ");
+    const text = `I just discovered I'm a ${pal.name} — ${pal.tagline}. My best colours are ${top3}. Found out on StyleUp's colour fitting room 🎨`;
+    navigator.clipboard?.writeText(text).then(() => {
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2500);
+    });
+  };
+
+  // Referral
+  const referralCode = "STYLE10";
+  const referralLink = `https://styleup.app/invite?ref=${referralCode}`;
+  const handleCopyReferral = () => {
+    navigator.clipboard?.writeText(referralLink).then(() => {
+      setCopiedReferral(true);
+      setTimeout(() => setCopiedReferral(false), 2500);
+    });
+  };
 
   if (!mounted) return <main className="min-h-screen" />;
 
@@ -163,26 +239,144 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Colour season */}
-      {season && (
-        <div className="card p-4 mb-8 flex items-center gap-4">
-          <div>
-            <p className="text-xs font-semibold mb-0.5" style={{ color: "var(--faint)" }}>YOUR COLOUR SEASON</p>
-            <p className="font-bold">{PALETTES[season].name}</p>
-            <p className="text-xs" style={{ color: "var(--dim)" }}>{PALETTES[season].tagline}</p>
+      {/* Style profile — archetype + colour season combined */}
+      {(archetypeData || season) && (
+        <div className="card p-5 mb-6">
+          <p className="text-xs font-semibold mb-4" style={{ color: "var(--faint)" }}>YOUR STYLE PROFILE</p>
+          <div className="flex gap-4 items-start">
+            {archetypeData && (
+              <div className="flex-1">
+                <p className="text-xs mb-1" style={{ color: "var(--dim)" }}>Archetype</p>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-lg">{archetypeData.icon}</span>
+                  <p className="font-bold text-base">{archetypeData.name}</p>
+                </div>
+                <p className="text-xs leading-relaxed" style={{ color: "var(--dim)" }}>{archetypeData.desc.slice(0, 80)}…</p>
+              </div>
+            )}
+            {archetypeData && season && (
+              <div style={{ width: 1, alignSelf: "stretch", background: "var(--border)", flexShrink: 0 }} />
+            )}
+            {season && (
+              <div className="flex-1">
+                <p className="text-xs mb-1" style={{ color: "var(--dim)" }}>Colour season</p>
+                <p className="font-bold text-base mb-0.5">{PALETTES[season].name}</p>
+                <p className="text-xs mb-3" style={{ color: "var(--accent)" }}>{PALETTES[season].tagline}</p>
+                <div className="flex gap-1.5 flex-wrap">
+                  {PALETTES[season].colors.slice(0, 5).map((c) => (
+                    <div
+                      key={c.hex}
+                      className="rounded-full"
+                      title={c.name}
+                      style={{ width: 22, height: 22, background: c.hex, border: "1px solid rgba(0,0,0,0.08)" }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          <div className="flex gap-1.5 ml-auto flex-shrink-0">
-            {PALETTES[season].colors.slice(0, 5).map((c) => (
+          <div className="flex gap-3 mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+            {!archetypeData && (
+              <Link href="/quiz" className="text-xs" style={{ color: "var(--accent)" }}>
+                Take style quiz →
+              </Link>
+            )}
+            <Link href="/fitting" className="text-xs" style={{ color: "var(--accent)" }}>
+              Open fitting room →
+            </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Loyalty milestones — Your style journey */}
+      <div className="card p-5 mb-6">
+        <p className="text-xs font-semibold mb-4" style={{ color: "var(--faint)" }}>YOUR STYLE JOURNEY</p>
+        <div className="flex gap-3 mb-4 overflow-x-auto pb-1">
+          {MILESTONES.map((m) => {
+            const achieved = sessionCount >= m.count;
+            return (
               <div
-                key={c.hex}
-                className="rounded-full"
-                style={{ width: 24, height: 24, background: c.hex, border: "1px solid rgba(0,0,0,0.08)" }}
+                key={m.count}
+                className="flex-shrink-0 text-center px-3 py-2 rounded-xl"
+                style={{
+                  background: achieved ? "var(--accent-bg)" : "var(--surface)",
+                  border: `1px solid ${achieved ? "var(--accent)" : "var(--border)"}`,
+                  minWidth: 100,
+                }}
+              >
+                <p className="text-lg mb-1">{achieved ? "✦" : "○"}</p>
+                <p className="text-xs font-semibold" style={{ color: achieved ? "var(--accent)" : "var(--dim)" }}>
+                  {m.count} {m.count === 1 ? "session" : "sessions"}
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: achieved ? "var(--accent)" : "var(--faint)" }}>
+                  {m.label}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+        {nextMilestone ? (
+          <div>
+            <div className="flex justify-between text-xs mb-1.5" style={{ color: "var(--dim)" }}>
+              <span>{sessionCount} session{sessionCount !== 1 ? "s" : ""}</span>
+              <span>Next: {nextMilestone.label} ({nextMilestone.count})</span>
+            </div>
+            <div className="h-2 rounded-full overflow-hidden" style={{ background: "var(--border)" }}>
+              <div
+                className="h-2 rounded-full transition-all"
+                style={{ width: `${milestoneProgress}%`, background: "var(--accent)" }}
               />
+            </div>
+            <p className="text-xs mt-2" style={{ color: "var(--faint)" }}>
+              {nextMilestone.count - sessionCount} more session{nextMilestone.count - sessionCount !== 1 ? "s" : ""} until &ldquo;{nextMilestone.label}&rdquo;
+            </p>
+          </div>
+        ) : achievedMilestone ? (
+          <div className="text-center py-2">
+            <p className="text-sm font-semibold" style={{ color: "var(--accent)" }}>
+              ✦ {achievedMilestone.label} — {achievedMilestone.desc}
+            </p>
+          </div>
+        ) : (
+          <p className="text-xs" style={{ color: "var(--dim)" }}>
+            Book your first session to start your journey.
+          </p>
+        )}
+      </div>
+
+      {/* Stylist recommends — based on colour season */}
+      {season && (
+        <div className="card p-5 mb-6">
+          <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>YOUR STYLIST RECOMMENDS</p>
+          <p className="text-sm mb-4" style={{ color: "var(--dim)" }}>
+            Because you&apos;re a <strong>{PALETTES[season].name}</strong>, your stylist recommends:
+          </p>
+          <div className="flex flex-col gap-3">
+            {SEASON_RECOMMENDS[season].map((rec) => (
+              <div key={rec.item} className="flex items-start gap-3">
+                <div
+                  className="rounded-lg flex-shrink-0 flex items-center justify-center text-xs font-bold"
+                  style={{
+                    width: 36,
+                    height: 36,
+                    background: "var(--accent-bg)",
+                    color: "var(--accent)",
+                  }}
+                >
+                  ✦
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{rec.item}</p>
+                  <p className="text-xs" style={{ color: "var(--dim)" }}>{rec.desc}</p>
+                </div>
+              </div>
             ))}
           </div>
-          <Link href="/fitting" className="text-xs flex-shrink-0" style={{ color: "var(--accent)" }}>
-            Open fitting room →
-          </Link>
+          <div className="mt-4 pt-4" style={{ borderTop: "1px solid var(--border)" }}>
+            <Link href="/explore" className="text-xs" style={{ color: "var(--accent)" }}>
+              Find a stylist who knows your season →
+            </Link>
+          </div>
         </div>
       )}
 
@@ -221,6 +415,67 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {/* Share your colour season */}
+      {season && (
+        <div className="card p-5 mb-6">
+          <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>SHARE YOUR COLOUR SEASON</p>
+          <p className="text-sm mb-3" style={{ color: "var(--dim)" }}>
+            Let friends know you&apos;re a <strong>{PALETTES[season].name}</strong>.
+          </p>
+          <div
+            className="rounded-xl p-4 mb-4 text-sm leading-relaxed"
+            style={{ background: "var(--surface)", border: "1px solid var(--border)", color: "var(--dim)" }}
+          >
+            I just discovered I&apos;m a {PALETTES[season].name} — {PALETTES[season].tagline}.
+            My best colours are {PALETTES[season].colors.slice(0, 3).map((c) => c.name).join(", ")}.
+            Found out on StyleUp&apos;s colour fitting room 🎨
+          </div>
+          <button
+            onClick={handleShareSeason}
+            className="text-sm font-semibold px-4 py-2 rounded-lg w-full transition-colors"
+            style={{
+              background: copiedShare ? "#E8F5E9" : "var(--accent-bg)",
+              color: copiedShare ? "#2D7A4F" : "var(--accent)",
+              border: "1px solid transparent",
+            }}
+          >
+            {copiedShare ? "Copied to clipboard ✓" : "Copy share text"}
+          </button>
+        </div>
+      )}
+
+      {/* Refer a friend */}
+      <div className="card p-5 mb-8">
+        <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>REFER A FRIEND</p>
+        <p className="text-sm mb-3" style={{ color: "var(--dim)" }}>
+          Share StyleUp with a friend and help them find their style.
+        </p>
+        <div
+          className="flex items-center justify-between rounded-xl px-4 py-3 mb-4"
+          style={{ background: "var(--surface)", border: "1px solid var(--border)" }}
+        >
+          <div>
+            <p className="text-xs mb-0.5" style={{ color: "var(--faint)" }}>YOUR REFERRAL CODE</p>
+            <p className="font-bold mono text-base">{referralCode}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs" style={{ color: "var(--faint)" }}>REFERRAL LINK</p>
+            <p className="text-xs" style={{ color: "var(--dim)" }}>{referralLink}</p>
+          </div>
+        </div>
+        <button
+          onClick={handleCopyReferral}
+          className="text-sm font-semibold px-4 py-2 rounded-lg w-full transition-colors"
+          style={{
+            background: copiedReferral ? "#E8F5E9" : "var(--surface)",
+            color: copiedReferral ? "#2D7A4F" : "var(--ink)",
+            border: "1px solid var(--border)",
+          }}
+        >
+          {copiedReferral ? "Link copied ✓" : "Copy referral link"}
+        </button>
+      </div>
+
       {/* Past sessions */}
       {past.length > 0 && (
         <section className="mb-8">
@@ -246,7 +501,7 @@ export default function Dashboard() {
       )}
 
       {/* Empty state */}
-      {bookings.length === 0 && !season && (
+      {bookings.length === 0 && !season && !archetypeData && (
         <div className="text-center py-10">
           <p className="serif text-xl font-bold mb-2">Welcome to StyleUp</p>
           <p className="text-sm mb-6" style={{ color: "var(--dim)" }}>

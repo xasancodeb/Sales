@@ -10,6 +10,29 @@ import {
 type Zone = "top" | "bottom" | "accessory" | "outerwear";
 type SkinTone = "light" | "medium" | "dark" | "deep";
 
+interface SavedOutfit {
+  id: string;
+  name: string;
+  outfit: Record<Zone, string>;
+  season: ColorSeason | null;
+  savedAt: string;
+}
+
+function loadSavedOutfits(): SavedOutfit[] {
+  if (typeof window === "undefined") return [];
+  try { return JSON.parse(localStorage.getItem("styleup_saved_outfits") ?? "[]"); } catch { return []; }
+}
+function persistSavedOutfits(outfits: SavedOutfit[]) {
+  localStorage.setItem("styleup_saved_outfits", JSON.stringify(outfits));
+}
+
+const DEFAULT_OUTFIT: Record<Zone, string> = {
+  top: "#F5F0EB",
+  outerwear: "#FFFFFF",
+  bottom: "#2C2C2C",
+  accessory: "#8B6914",
+};
+
 const SKIN_TONES: { id: SkinTone; label: string; hex: string }[] = [
   { id: "light",  label: "Fair / Light",  hex: "#FDDBB4" },
   { id: "medium", label: "Medium / Tan",   hex: "#C68642" },
@@ -78,7 +101,6 @@ function Avatar({
 }
 
 function HarmonyBadge({ colors }: { colors: string[] }) {
-  // Simple check: are we mixing warm and cool in jarring ways?
   const hexToHue = (hex: string): number => {
     const r = parseInt(hex.slice(1, 3), 16) / 255;
     const g = parseInt(hex.slice(3, 5), 16) / 255;
@@ -104,17 +126,109 @@ function HarmonyBadge({ colors }: { colors: string[] }) {
   ));
 
   let label = "Harmonious";
+  let explanation = "Your pieces work together in natural harmony";
   let color = "#2D7A4F";
   let bg = "#E8F5E9";
 
-  if (maxDiff >= 150 && maxDiff <= 210) { label = "Complementary ✦ bold"; color = "#8B6914"; bg = "#FBF4E8"; }
-  else if (maxDiff >= 110 && maxDiff < 150) { label = "Triadic ✦ vibrant"; color = "#1B4F72"; bg = "#E8F4FD"; }
-  else if (maxDiff < 50) { label = "Tonal ✦ safe & clean"; color = "#2D7A4F"; bg = "#E8F5E9"; }
-  else { label = "Contrasting ✦ bold"; color = "#7B241C"; bg = "#FDEDEC"; }
+  if (maxDiff >= 150 && maxDiff <= 210) {
+    label = "Complementary ✦ bold";
+    explanation = "Bold contrast from opposite ends of the colour wheel — high impact";
+    color = "#8B6914";
+    bg = "#FBF4E8";
+  } else if (maxDiff >= 110 && maxDiff < 150) {
+    label = "Triadic ✦ vibrant";
+    explanation = "Three evenly spaced hues — vibrant and dynamic";
+    color = "#1B4F72";
+    bg = "#E8F4FD";
+  } else if (maxDiff < 50) {
+    label = "Tonal ✦ safe & clean";
+    explanation = "Your pieces share similar hues — a cohesive, sophisticated look";
+    color = "#2D7A4F";
+    bg = "#E8F5E9";
+  } else {
+    label = "Contrasting ✦ bold";
+    explanation = "Strong colour contrast — confident and statement-making";
+    color = "#7B241C";
+    bg = "#FDEDEC";
+  }
 
   return (
-    <div className="mt-3 px-3 py-2 rounded-lg text-xs font-semibold" style={{ background: bg, color }}>
-      Colour harmony: {label}
+    <div className="mt-3 px-3 py-2 rounded-lg text-xs" style={{ background: bg, color }}>
+      <p className="font-semibold mb-0.5">Colour harmony: {label}</p>
+      <p style={{ opacity: 0.85 }}>{explanation}</p>
+    </div>
+  );
+}
+
+// Mini swatch showing 4 colours in a 2x2 grid
+function OutfitSwatch({ outfit }: { outfit: Record<Zone, string> }) {
+  const zones: Zone[] = ["top", "outerwear", "bottom", "accessory"];
+  return (
+    <div className="grid grid-cols-2 gap-0.5 rounded-lg overflow-hidden" style={{ width: 40, height: 40, flexShrink: 0 }}>
+      {zones.map((z) => (
+        <div key={z} style={{ background: outfit[z], border: "1px solid rgba(0,0,0,0.06)" }} />
+      ))}
+    </div>
+  );
+}
+
+// Saved outfits section
+function SavedOutfitsSection({
+  savedOutfits,
+  onLoad,
+  onDelete,
+}: {
+  savedOutfits: SavedOutfit[];
+  onLoad: (o: SavedOutfit) => void;
+  onDelete: (id: string) => void;
+}) {
+  if (savedOutfits.length === 0) {
+    return (
+      <div className="card p-5 text-center mt-6">
+        <p className="text-sm font-semibold mb-1">No saved outfits yet</p>
+        <p className="text-xs" style={{ color: "var(--dim)" }}>Save your first colour combination above</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6">
+      <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>YOUR SAVED OUTFITS</p>
+      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+        {savedOutfits.slice(0, 6).map((o) => (
+          <div
+            key={o.id}
+            className="card p-4 flex items-center gap-3"
+          >
+            <OutfitSwatch outfit={o.outfit} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold truncate">{o.name}</p>
+              {o.season && (
+                <p className="text-xs" style={{ color: "var(--accent)" }}>{PALETTES[o.season].name}</p>
+              )}
+              <p className="text-xs" style={{ color: "var(--faint)" }}>
+                {new Date(o.savedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => onLoad(o)}
+                className="text-xs px-2.5 py-1 rounded-lg font-semibold"
+                style={{ background: "var(--accent-bg)", color: "var(--accent)" }}
+              >
+                Load
+              </button>
+              <button
+                onClick={() => onDelete(o.id)}
+                className="text-xs px-2.5 py-1 rounded-lg"
+                style={{ background: "#FDEDEC", color: "#7B241C" }}
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -175,18 +289,20 @@ export default function FittingRoom() {
 
   const [skinTone, setSkinTone] = useState<SkinTone>("medium");
   const [activeZone, setActiveZone] = useState<Zone>("top");
-  const [outfit, setOutfit] = useState<Record<Zone, string>>({
-    top: "#F5F0EB",
-    outerwear: "#FFFFFF", // white means "off/none"
-    bottom: "#2C2C2C",
-    accessory: "#8B6914",
-  });
+  const [outfit, setOutfit] = useState<Record<Zone, string>>({ ...DEFAULT_OUTFIT });
 
   const [shared, setShared] = useState(false);
+
+  // Save outfit state
+  const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>([]);
+  const [namingOutfit, setNamingOutfit] = useState(false);
+  const [pendingName, setPendingName] = useState("");
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     const p = loadProfile();
     if (p?.season) setSeason(p.season);
+    setSavedOutfits(loadSavedOutfits());
   }, []);
 
   if (showQuiz) {
@@ -205,6 +321,45 @@ export default function FittingRoom() {
 
   const setColor = (color: string) => {
     setOutfit((prev) => ({ ...prev, [activeZone]: color }));
+  };
+
+  const resetOutfit = () => {
+    setOutfit({ ...DEFAULT_OUTFIT });
+  };
+
+  const startSaveOutfit = () => {
+    const nextNum = savedOutfits.length + 1;
+    setPendingName(`Outfit ${nextNum}`);
+    setNamingOutfit(true);
+  };
+
+  const confirmSaveOutfit = () => {
+    const name = pendingName.trim() || `Outfit ${savedOutfits.length + 1}`;
+    const newOutfit: SavedOutfit = {
+      id: Date.now().toString(),
+      name,
+      outfit: { ...outfit },
+      season,
+      savedAt: new Date().toISOString(),
+    };
+    const updated = [...savedOutfits, newOutfit];
+    setSavedOutfits(updated);
+    persistSavedOutfits(updated);
+    setNamingOutfit(false);
+    setPendingName("");
+    setJustSaved(true);
+    setTimeout(() => setJustSaved(false), 2000);
+  };
+
+  const loadOutfit = (o: SavedOutfit) => {
+    setOutfit({ ...o.outfit });
+    if (o.season) setSeason(o.season);
+  };
+
+  const deleteOutfit = (id: string) => {
+    const updated = savedOutfits.filter((o) => o.id !== id);
+    setSavedOutfits(updated);
+    persistSavedOutfits(updated);
   };
 
   const shareText = () => {
@@ -261,147 +416,213 @@ export default function FittingRoom() {
 
       {/* ── Outfit Builder ── */}
       {activeTab === "builder" && (
-        <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 1fr" }}>
-          {/* Avatar */}
-          <div className="card p-6 flex flex-col items-center">
-            <p className="text-xs font-semibold mb-3 self-start" style={{ color: "var(--faint)" }}>SKIN TONE</p>
-            <div className="flex gap-2 mb-6 self-start">
-              {SKIN_TONES.map((st) => (
-                <button
-                  key={st.id}
-                  onClick={() => setSkinTone(st.id)}
-                  className="rounded-full transition-all"
-                  title={st.label}
-                  style={{
-                    width: 28,
-                    height: 28,
-                    background: st.hex,
-                    border: skinTone === st.id ? "3px solid var(--accent)" : "2px solid rgba(0,0,0,0.12)",
-                  }}
-                />
-              ))}
-            </div>
-
-            <Avatar
-              skin={skinHex}
-              top={outfit.top}
-              bottom={outfit.bottom}
-              accessory={outfit.accessory}
-              outerwear={outfit.outerwear}
-            />
-
-            <HarmonyBadge colors={[outfit.top, outfit.bottom, outfit.accessory]} />
-
-            <button
-              onClick={shareText}
-              className="mt-4 text-sm font-semibold px-4 py-2 rounded-lg w-full transition-colors"
-              style={{
-                background: shared ? "#E8F5E9" : "var(--accent-bg)",
-                color: shared ? "#2D7A4F" : "var(--accent)",
-                border: "1px solid transparent",
-              }}
-            >
-              {shared ? "Copied to clipboard ✓" : "Share palette with stylist"}
-            </button>
-          </div>
-
-          {/* Controls */}
-          <div>
-            {/* Zone selector */}
-            <div className="card p-4 mb-4">
-              <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>SELECT ZONE TO COLOUR</p>
-              <div className="grid grid-cols-2 gap-2">
-                {ZONE_LABELS.map((z) => (
+        <>
+          <div className="grid gap-6" style={{ gridTemplateColumns: "1fr 1fr" }}>
+            {/* Avatar */}
+            <div className="card p-6 flex flex-col items-center">
+              <p className="text-xs font-semibold mb-3 self-start" style={{ color: "var(--faint)" }}>SKIN TONE</p>
+              <div className="flex gap-2 mb-6 self-start">
+                {SKIN_TONES.map((st) => (
                   <button
-                    key={z.id}
-                    onClick={() => setActiveZone(z.id)}
-                    className="text-left p-3 rounded-xl transition-all"
+                    key={st.id}
+                    onClick={() => setSkinTone(st.id)}
+                    className="rounded-full transition-all"
+                    title={st.label}
                     style={{
-                      border: `2px solid ${activeZone === z.id ? "var(--accent)" : "var(--border)"}`,
-                      background: activeZone === z.id ? "var(--accent-bg)" : "transparent",
+                      width: 28,
+                      height: 28,
+                      background: st.hex,
+                      border: skinTone === st.id ? "3px solid var(--accent)" : "2px solid rgba(0,0,0,0.12)",
                     }}
-                  >
-                    <div
-                      className="w-6 h-6 rounded-md mb-2"
-                      style={{ background: outfit[z.id], border: "1px solid rgba(0,0,0,0.1)" }}
-                    />
-                    <p className="text-xs font-semibold">{z.label}</p>
-                    <p className="text-xs" style={{ color: "var(--faint)" }}>{z.desc}</p>
-                  </button>
+                  />
                 ))}
               </div>
+
+              <Avatar
+                skin={skinHex}
+                top={outfit.top}
+                bottom={outfit.bottom}
+                accessory={outfit.accessory}
+                outerwear={outfit.outerwear}
+              />
+
+              <HarmonyBadge colors={[outfit.top, outfit.bottom, outfit.accessory]} />
+
+              <div className="flex gap-2 w-full mt-4">
+                <button
+                  onClick={shareText}
+                  className="text-sm font-semibold px-4 py-2 rounded-lg flex-1 transition-colors"
+                  style={{
+                    background: shared ? "#E8F5E9" : "var(--accent-bg)",
+                    color: shared ? "#2D7A4F" : "var(--accent)",
+                    border: "1px solid transparent",
+                  }}
+                >
+                  {shared ? "Copied ✓" : "Share palette"}
+                </button>
+                <button
+                  onClick={resetOutfit}
+                  className="text-sm px-3 py-2 rounded-lg transition-colors"
+                  style={{
+                    background: "var(--surface)",
+                    color: "var(--dim)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  Reset
+                </button>
+              </div>
+
+              {/* Save outfit */}
+              {namingOutfit ? (
+                <div className="mt-3 w-full">
+                  <input
+                    type="text"
+                    value={pendingName}
+                    onChange={(e) => setPendingName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") confirmSaveOutfit(); if (e.key === "Escape") setNamingOutfit(false); }}
+                    placeholder="Name this outfit…"
+                    autoFocus
+                    className="w-full px-3 py-2 rounded-lg text-sm mb-2"
+                    style={{ border: "1px solid var(--accent)", outline: "none", background: "var(--surface)" }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={confirmSaveOutfit}
+                      className="flex-1 text-sm font-semibold px-3 py-2 rounded-lg"
+                      style={{ background: "var(--accent)", color: "#fff" }}
+                    >
+                      Save
+                    </button>
+                    <button
+                      onClick={() => setNamingOutfit(false)}
+                      className="text-sm px-3 py-2 rounded-lg"
+                      style={{ background: "var(--surface)", color: "var(--dim)", border: "1px solid var(--border)" }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={startSaveOutfit}
+                  className="mt-3 text-sm font-semibold px-4 py-2 rounded-lg w-full transition-colors"
+                  style={{
+                    background: justSaved ? "#E8F5E9" : "var(--surface)",
+                    color: justSaved ? "#2D7A4F" : "var(--ink)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {justSaved ? "Outfit saved ✓" : "Save outfit"}
+                </button>
+              )}
             </div>
 
-            {/* Color picker — season palette */}
-            {palette ? (
+            {/* Controls */}
+            <div>
+              {/* Zone selector */}
               <div className="card p-4 mb-4">
-                <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>
-                  YOUR {palette.name.toUpperCase()} PALETTE
-                </p>
-                <p className="text-xs mb-3" style={{ color: "var(--dim)" }}>{palette.tagline}</p>
-                <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
-                  {[...palette.colors, ...palette.neutrals].map((c: SeasonColor) => (
+                <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>SELECT ZONE TO COLOUR</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ZONE_LABELS.map((z) => (
                     <button
-                      key={c.hex}
-                      onClick={() => setColor(c.hex)}
-                      title={c.name}
-                      className="rounded-lg transition-transform hover:scale-110"
+                      key={z.id}
+                      onClick={() => setActiveZone(z.id)}
+                      className="text-left p-3 rounded-xl transition-all"
+                      style={{
+                        border: `2px solid ${activeZone === z.id ? "var(--accent)" : "var(--border)"}`,
+                        background: activeZone === z.id ? "var(--accent-bg)" : "transparent",
+                      }}
+                    >
+                      <div
+                        className="w-6 h-6 rounded-md mb-2"
+                        style={{ background: outfit[z.id], border: "1px solid rgba(0,0,0,0.1)" }}
+                      />
+                      <p className="text-xs font-semibold">{z.label}</p>
+                      <p className="text-xs" style={{ color: "var(--faint)" }}>{z.desc}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Color picker — season palette */}
+              {palette ? (
+                <div className="card p-4 mb-4">
+                  <p className="text-xs font-semibold mb-1" style={{ color: "var(--faint)" }}>
+                    YOUR {palette.name.toUpperCase()} PALETTE
+                  </p>
+                  <p className="text-xs mb-3" style={{ color: "var(--dim)" }}>{palette.tagline}</p>
+                  <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(6, 1fr)" }}>
+                    {[...palette.colors, ...palette.neutrals].map((c: SeasonColor) => (
+                      <button
+                        key={c.hex}
+                        onClick={() => setColor(c.hex)}
+                        title={c.name}
+                        className="rounded-lg transition-transform hover:scale-110"
+                        style={{
+                          width: "100%",
+                          aspectRatio: "1",
+                          background: c.hex,
+                          border: outfit[activeZone] === c.hex
+                            ? "3px solid var(--accent)"
+                            : "1px solid rgba(0,0,0,0.1)",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="card p-4 mb-4 text-center">
+                  <p className="text-sm font-semibold mb-2">Discover your colour season</p>
+                  <p className="text-xs mb-3" style={{ color: "var(--dim)" }}>
+                    Take a 3-question quiz to unlock your personal palette
+                  </p>
+                  <button className="btn-accent" style={{ padding: "10px 20px", fontSize: 13 }} onClick={() => setShowQuiz(true)}>
+                    Find my season →
+                  </button>
+                </div>
+              )}
+
+              {/* Universal colour wheel */}
+              <div className="card p-4">
+                <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>ALL COLOURS</p>
+                <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
+                  {[
+                    "#FFFFFF","#F5F5F5","#E0E0E0","#BDBDBD","#9E9E9E","#757575","#424242","#000000",
+                    "#FFEBEE","#FFCDD2","#EF9A9A","#E57373","#EF5350","#F44336","#E53935","#B71C1C",
+                    "#FFF3E0","#FFE0B2","#FFCC80","#FFB74D","#FFA726","#FF9800","#FB8C00","#E65100",
+                    "#FFFDE7","#FFF9C4","#FFF176","#FFEE58","#FFEB3B","#FDD835","#F9A825","#F57F17",
+                    "#E8F5E9","#C8E6C9","#A5D6A7","#81C784","#66BB6A","#4CAF50","#43A047","#1B5E20",
+                    "#E3F2FD","#BBDEFB","#90CAF9","#64B5F6","#42A5F5","#2196F3","#1E88E5","#0D47A1",
+                    "#EDE7F6","#D1C4E9","#B39DDB","#9575CD","#7E57C2","#673AB7","#5E35B1","#311B92",
+                    "#FCE4EC","#F8BBD9","#F48FB1","#F06292","#EC407A","#E91E63","#D81B60","#880E4F",
+                  ].map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className="rounded transition-transform hover:scale-110"
                       style={{
                         width: "100%",
                         aspectRatio: "1",
-                        background: c.hex,
-                        border: outfit[activeZone] === c.hex
-                          ? "3px solid var(--accent)"
-                          : "1px solid rgba(0,0,0,0.1)",
+                        background: c,
+                        border: outfit[activeZone] === c
+                          ? "2px solid var(--accent)"
+                          : "1px solid rgba(0,0,0,0.08)",
                       }}
                     />
                   ))}
                 </div>
               </div>
-            ) : (
-              <div className="card p-4 mb-4 text-center">
-                <p className="text-sm font-semibold mb-2">Discover your colour season</p>
-                <p className="text-xs mb-3" style={{ color: "var(--dim)" }}>
-                  Take a 3-question quiz to unlock your personal palette
-                </p>
-                <button className="btn-accent" style={{ padding: "10px 20px", fontSize: 13 }} onClick={() => setShowQuiz(true)}>
-                  Find my season →
-                </button>
-              </div>
-            )}
-
-            {/* Universal colour wheel */}
-            <div className="card p-4">
-              <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>ALL COLOURS</p>
-              <div className="grid gap-1.5" style={{ gridTemplateColumns: "repeat(8, 1fr)" }}>
-                {[
-                  "#FFFFFF","#F5F5F5","#E0E0E0","#BDBDBD","#9E9E9E","#757575","#424242","#000000",
-                  "#FFEBEE","#FFCDD2","#EF9A9A","#E57373","#EF5350","#F44336","#E53935","#B71C1C",
-                  "#FFF3E0","#FFE0B2","#FFCC80","#FFB74D","#FFA726","#FF9800","#FB8C00","#E65100",
-                  "#FFFDE7","#FFF9C4","#FFF176","#FFEE58","#FFEB3B","#FDD835","#F9A825","#F57F17",
-                  "#E8F5E9","#C8E6C9","#A5D6A7","#81C784","#66BB6A","#4CAF50","#43A047","#1B5E20",
-                  "#E3F2FD","#BBDEFB","#90CAF9","#64B5F6","#42A5F5","#2196F3","#1E88E5","#0D47A1",
-                  "#EDE7F6","#D1C4E9","#B39DDB","#9575CD","#7E57C2","#673AB7","#5E35B1","#311B92",
-                  "#FCE4EC","#F8BBD9","#F48FB1","#F06292","#EC407A","#E91E63","#D81B60","#880E4F",
-                ].map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => setColor(c)}
-                    className="rounded transition-transform hover:scale-110"
-                    style={{
-                      width: "100%",
-                      aspectRatio: "1",
-                      background: c,
-                      border: outfit[activeZone] === c
-                        ? "2px solid var(--accent)"
-                        : "1px solid rgba(0,0,0,0.08)",
-                    }}
-                  />
-                ))}
-              </div>
             </div>
           </div>
-        </div>
+
+          {/* Saved outfits section */}
+          <SavedOutfitsSection
+            savedOutfits={savedOutfits}
+            onLoad={loadOutfit}
+            onDelete={deleteOutfit}
+          />
+        </>
       )}
 
       {/* ── My Palette tab ── */}
