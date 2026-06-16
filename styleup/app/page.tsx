@@ -7,6 +7,33 @@ import { getUpcoming } from "@/lib/booking";
 
 const FEATURED_IDS = ["amara-okonkwo", "lea-fontaine", "marcus-reeves"];
 
+const FAQS = [
+  {
+    q: "How much does a session cost?",
+    a: "Sessions range from £75 for an online consultation to £840+ for a luxury in-store experience. Each stylist sets their own prices — you see the full cost before booking. No hidden fees.",
+  },
+  {
+    q: "Can I get a refund if I cancel?",
+    a: "You can cancel up to 24 hours before your session for a full refund. Cancellations within 24 hours may be subject to a 50% cancellation fee — your stylist has prepared specifically for you.",
+  },
+  {
+    q: "How are stylists verified?",
+    a: "Every stylist goes through our application and portfolio review. We verify credentials, check references, and do a test client call. Only 1 in 4 applicants are accepted.",
+  },
+  {
+    q: "What if I don't click with my stylist?",
+    a: "It's rare, but it happens. Contact us within 24 hours of your first session and we'll find you another stylist or issue a full refund — no questions asked.",
+  },
+  {
+    q: "Is the colour fitting room free?",
+    a: "Yes, completely free. No account needed. The colour analysis quiz, outfit builder, and full palette are yours to use as many times as you like.",
+  },
+  {
+    q: "Can I book a stylist in my city if they're not listed?",
+    a: "We add new stylists every month. Use the 'Find stylists' page to see who's near you, or tell us your city and we'll notify you when someone joins your area.",
+  },
+];
+
 function StarRating({ rating }: { rating: number }) {
   return (
     <span className="star text-sm">
@@ -39,6 +66,7 @@ function StylistCard({ id }: { id: string }) {
 export default function Landing() {
   const [hasBooking, setHasBooking] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -164,10 +192,49 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── Fitting room demo ── */}
+      <section className="max-w-5xl mx-auto px-6 pb-20">
+        <h2 className="serif text-2xl font-bold mb-2 text-center">How the colour fitting room works</h2>
+        <p className="text-sm text-center mb-8" style={{ color: "var(--dim)" }}>Three steps to discovering your best palette</p>
+        <div className="grid gap-6" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+          {[
+            { n: "01", title: "Find your season", body: "Answer 3 questions about your skin tone and natural colouring. We pinpoint your Spring, Summer, Autumn, or Winter season.", icon: "🌸❄️🍂☀️" },
+            { n: "02", title: "Try your palette", body: "See your personalised colour palette. Use the outfit builder to try different combinations on a virtual avatar — no dressing room required.", icon: "🎨" },
+            { n: "03", title: "Share with your stylist", body: "Copy your palette summary to your clipboard or share it directly with your stylist at booking so they arrive prepared.", icon: "📋" },
+          ].map((s) => (
+            <div key={s.n} className="card p-6">
+              <p className="mono text-xs mb-2" style={{ color: "var(--accent)" }}>{s.n}</p>
+              <p className="text-2xl mb-3">{s.icon}</p>
+              <p className="font-semibold mb-2">{s.title}</p>
+              <p className="text-sm leading-relaxed" style={{ color: "var(--dim)", lineHeight: 1.6 }}>{s.body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="text-center mt-8">
+          <Link href="/fitting" className="btn-accent">Try the fitting room free →</Link>
+        </div>
+      </section>
+
       {/* ── Featured stylists ── */}
       <section className="max-w-5xl mx-auto px-6 pb-20">
         <h2 className="serif text-2xl font-bold mb-2">Top stylists this month</h2>
         <p className="text-sm mb-8" style={{ color: "var(--dim)" }}>Verified professionals with hundreds of completed sessions</p>
+
+        {/* ── Trust signals ── */}
+        <div className="flex flex-wrap justify-center gap-8 mb-12 mt-4">
+          {[
+            { value: "10", label: "cities covered" },
+            { value: STYLISTS.length.toString(), label: "verified stylists" },
+            { value: "< 48hrs", label: "avg. booking to session" },
+            { value: "4.93★", label: "average stylist rating" },
+          ].map((t) => (
+            <div key={t.label} className="text-center">
+              <p className="serif text-2xl font-bold" style={{ color: "var(--accent)" }}>{t.value}</p>
+              <p className="text-xs mt-0.5" style={{ color: "var(--dim)" }}>{t.label}</p>
+            </div>
+          ))}
+        </div>
+
         <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>
           {FEATURED_IDS.map((id) => <StylistCard key={id} id={id} />)}
         </div>
@@ -196,6 +263,30 @@ export default function Landing() {
         </div>
       </section>
 
+      {/* ── FAQ ── */}
+      <section className="max-w-3xl mx-auto px-6 pb-20">
+        <h2 className="serif text-2xl font-bold mb-2 text-center">Frequently asked questions</h2>
+        <p className="text-sm text-center mb-8" style={{ color: "var(--dim)" }}>Everything you need to know before booking</p>
+        <div className="flex flex-col gap-2">
+          {FAQS.map((faq, i) => (
+            <div key={i} className="card overflow-hidden">
+              <button
+                onClick={() => setOpenFaq(openFaq === i ? null : i)}
+                className="w-full text-left px-5 py-4 flex items-center justify-between"
+              >
+                <span className="font-semibold text-sm">{faq.q}</span>
+                <span className="text-lg" style={{ color: "var(--faint)", transform: openFaq === i ? "rotate(45deg)" : "none", transition: "transform 0.2s" }}>+</span>
+              </button>
+              {openFaq === i && (
+                <div className="px-5 pb-4 text-sm leading-relaxed fade-up" style={{ color: "var(--dim)" }}>
+                  {faq.a}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── CTA footer ── */}
       <section className="max-w-5xl mx-auto px-6 py-20 text-center">
         <h2 className="serif text-3xl font-bold mb-4">Ready to look like yourself?</h2>
@@ -208,16 +299,48 @@ export default function Landing() {
       </section>
 
       {/* ── Footer ── */}
-      <footer className="border-t px-6 py-8 text-center text-xs" style={{ borderColor: "var(--border)", color: "var(--faint)" }}>
-        <div className="flex justify-center gap-6 mb-3">
-          <Link href="/explore">Find a stylist</Link>
-          <Link href="/fitting">Colour room</Link>
-          <Link href="/quiz">Style quiz</Link>
-          <Link href="/dashboard">Dashboard</Link>
-          <Link href="/for-stylists">For stylists</Link>
-          <Link href="/stylist-portal">Stylist portal</Link>
+      <footer className="border-t px-6 py-12" style={{ borderColor: "var(--border)" }}>
+        <div className="max-w-5xl mx-auto">
+          <div className="grid gap-8 mb-8" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))" }}>
+            <div>
+              <p className="serif font-bold text-lg mb-3">StyleUp</p>
+              <p className="text-xs leading-relaxed" style={{ color: "var(--faint)" }}>Personal styling, everywhere. Trusted by 15,000+ clients across 10 cities.</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>FOR CLIENTS</p>
+              <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--dim)" }}>
+                <Link href="/explore">Find a stylist</Link>
+                <Link href="/fitting">Colour fitting room</Link>
+                <Link href="/quiz">Style quiz</Link>
+                <Link href="/dashboard">My dashboard</Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>FOR STYLISTS</p>
+              <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--dim)" }}>
+                <Link href="/for-stylists">Join StyleUp</Link>
+                <Link href="/for-stylists#tiers">Commission tiers</Link>
+                <Link href="/stylist-portal">Stylist portal</Link>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>SUPPORT</p>
+              <div className="flex flex-col gap-2 text-xs" style={{ color: "var(--dim)" }}>
+                <Link href="/">How it works</Link>
+                <Link href="/#faq">FAQ</Link>
+                <span style={{ color: "var(--faint)" }}>hello@styleup.com</span>
+              </div>
+            </div>
+          </div>
+          <div className="pt-6 flex flex-wrap items-center justify-between gap-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--faint)" }}>
+            <p>© 2026 StyleUp · Personal styling, everywhere</p>
+            <div className="flex gap-4">
+              <span>Privacy policy</span>
+              <span>Terms of service</span>
+              <span>Stylist terms</span>
+            </div>
+          </div>
         </div>
-        <p>© 2026 StyleUp · Personal styling, everywhere</p>
       </footer>
     </main>
   );
