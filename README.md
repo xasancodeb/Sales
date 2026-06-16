@@ -1,56 +1,58 @@
-# HIVEMIND
+# ONE — The world's shared page
 
-**Do you know what everyone is thinking?**
+**Eight billion people. One page.**
 
-One round a day. 5 questions. The whole world plays the same one. You don't win by being right — you win by knowing what everyone else thinks.
+Every person on Earth gets one post a day — no followers, no badges, no algorithm. The world votes, the best voice rises, and at midnight everyone starts equal again.
 
-## The game
+## The idea
 
-Each question has two steps:
+Social media rewards the loudest, the most frequent, the already-famous. ONE inverts all of it:
 
-1. **Your answer** — what do *you* think?
-2. **Read the hive** — what did *most people* say?
+- **One post per person, per day.** Scarcity forces you to make it count.
+- **No followers, no profiles to farm.** You don't accumulate an audience — you earn a single day.
+- **The whole world shares one feed.** The day number is global (UTC), so everyone on Earth is reading and ranking the same page at the same time.
+- **The crowd ranks the voices.** Votes decide whose post rises to the top of the day.
+- **Midnight resets everyone to equal.** Yesterday's winner is honoured in the Book of Days — then the page is blank again for all eight billion of us.
 
-Then the reveal: animated crowd distribution, whether you called the majority, and how mainstream (or alien) your own answer is.
+## What's in the app
 
-After 5 questions you get:
-
-- **Mind Read** (0–5) — how many majorities you predicted
-- **Hive Sync** (0–100%) — what fraction of the crowd shares your answers
-- **A persona** — The Oracle, The Insider, The Puppetmaster, The Alien… your daily identity, built from the two scores
-- **A share grid** — Wordle-style emoji result for one-tap sharing
-- **A streak** — and a countdown to the next round
-
-## Why it hooks
-
-- **Scarcity:** one round a day, hard-locked. You can't binge it, so you come back.
-- **Curiosity gap:** "what did everyone else say?" is the most clickable question in existence.
-- **Identity:** results tell you *who you are*, not just how you scored. People share identity.
-- **Same round for everyone:** day number is global (UTC) — everyone argues about the same 5 questions, every day.
+```
+app/page.tsx        the daily feed — read, vote, and see today's rising voices
+app/post/           write your one post for the day
+app/days/           the Book of Days — past winners, one per day
+app/me/             your streak, your delivered posts, your history
+app/welcome/        first-run onboarding
+app/about/          the manifesto
+lib/one.ts          core: day number, feed ranking, voting, streaks, personas
+lib/lang.ts         translation layer (multi-language UI)
+lib/api.ts          live backend integration (feed + votes)
+server/index.mjs    optional Node backend for real cross-device aggregation
+```
 
 ## Run it
 
 ```bash
 npm install
-npm run dev
+npm run dev          # the app at http://localhost:3000
+npm run server       # optional: the live backend (server/index.mjs)
 ```
 
-Open http://localhost:3000. That's the whole product — the game *is* the homepage.
+Without the backend running, the app works fully on seeded/simulated data in `localStorage`. With it, posts and votes aggregate live across devices behind the same interface — the UI is unchanged.
 
-## Architecture
+## Why it hooks
 
-```
-app/page.tsx      the game (intro → answer → predict → reveal → results)
-lib/hivemind.ts   question bank, daily selection, scoring, personas, share text
-```
+- **Scarcity:** one post a day, hard-locked to the UTC clock. You can't binge it, so you come back.
+- **Equality ritual:** the midnight reset is a daily fresh start nobody can buy their way past.
+- **Curiosity gap:** "what is the whole world saying today?" is a question with a new answer every morning.
+- **Identity:** streaks, delivered posts, and the Book of Days give you a quiet record of showing up — without turning it into a follower race.
 
-- Daily round selection and crowd distributions are deterministic (seeded by day number) so every player on Earth sees the identical round.
-- Streaks and history live in `localStorage`.
-- Crowd percentages are seeded baselines with daily jitter. The production path replaces them with real aggregated votes behind the same `dist` interface — game logic is unchanged.
+## Roadmap
 
-## Roadmap to the network effect
+1. Real vote aggregation at planet scale (the `lib/api.ts` interface already abstracts it).
+2. Language-native feeds — read the world in your language, vote across all of them.
+3. Country and city sync — "what is São Paulo saying today vs. Tokyo?"
+4. The permanent Book of Days — one winning voice per day, forever.
 
-1. Real vote aggregation (one API route + a counter table) — crowd data becomes live.
-2. Friend leagues — see your friends' personas before they see yours… only after you play.
-3. Country vs. country sync scores — "Brazil read the hive better than France today."
-4. User-submitted questions voted into future rounds.
+---
+
+This repository also contains **StyleUp** (in `styleup/`) — an Uber-for-stylists marketplace with a virtual colour fitting room. See `styleup/BUSINESS_PLAN.md`.
