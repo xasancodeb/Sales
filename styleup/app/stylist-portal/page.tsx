@@ -84,7 +84,21 @@ const AVAILABILITY = [
   { day: "Sat", slots: ["11:00"] },
 ];
 
-type Tab = "overview" | "bookings" | "earnings" | "availability" | "settings";
+const CLIENT_INSIGHTS = {
+  totalClients: 87,
+  repeatClients: 61,
+  retentionRate: 70,
+  avgSessionsPerClient: 2.46,
+  topServices: [
+    { name: "Shop Together", count: 89, revenue: 33820 },
+    { name: "Wardrobe Edit", count: 74, revenue: 21090 },
+    { name: "Virtual Style Consult", count: 38, revenue: 3610 },
+    { name: "Online Capsule Build", count: 13, revenue: 1560 },
+  ],
+  repeatClientNames: ["James W.", "Priya T.", "Céline M.", "Tom F.", "Sarah K."],
+};
+
+type Tab = "overview" | "bookings" | "earnings" | "availability" | "settings" | "insights";
 
 export default function StylistPortal() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -92,6 +106,9 @@ export default function StylistPortal() {
   const [contactReleased, setContactReleased] = useState<Record<string, boolean>>(
     Object.fromEntries(UPCOMING_BOOKINGS.map((b) => [b.id, b.contactReleased])),
   );
+  const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
+  const [clientNotes, setClientNotes] = useState<Record<string, string>>({});
+  const [editingNote, setEditingNote] = useState<string | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -132,12 +149,13 @@ export default function StylistPortal() {
           </div>
 
           {/* Nav */}
-          {(["overview", "bookings", "earnings", "availability", "settings"] as Tab[]).map((t) => {
+          {(["overview", "bookings", "earnings", "availability", "insights", "settings"] as Tab[]).map((t) => {
             const labels: Record<Tab, string> = {
               overview: "Overview",
               bookings: "Bookings",
               earnings: "Earnings",
               availability: "Availability",
+              insights: "Insights",
               settings: "Profile settings",
             };
             const icons: Record<Tab, string> = {
@@ -145,6 +163,7 @@ export default function StylistPortal() {
               bookings: "📅",
               earnings: "£",
               availability: "🗓",
+              insights: "📊",
               settings: "⚙",
             };
             return (
@@ -344,6 +363,32 @@ export default function StylistPortal() {
                         Message via StyleUp →
                       </button>
                     </div>
+                    <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border)" }}>
+                      <p className="text-xs font-semibold mb-2" style={{ color: "var(--faint)" }}>YOUR NOTES (private)</p>
+                      {editingNote === b.id ? (
+                        <div>
+                          <textarea
+                            value={clientNotes[b.id] ?? ""}
+                            onChange={(e) => setClientNotes(prev => ({ ...prev, [b.id]: e.target.value }))}
+                            placeholder="Add private notes about this client..."
+                            rows={3}
+                            className="w-full text-xs p-2 rounded-lg focus:outline-none resize-none"
+                            style={{ border: "1px solid var(--border)", color: "var(--ink)" }}
+                          />
+                          <button onClick={() => setEditingNote(null)} className="text-xs mt-1" style={{ color: "var(--accent)" }}>
+                            Save notes
+                          </button>
+                        </div>
+                      ) : (
+                        <p
+                          className="text-xs cursor-pointer"
+                          style={{ color: clientNotes[b.id] ? "var(--dim)" : "var(--faint)" }}
+                          onClick={() => setEditingNote(b.id)}
+                        >
+                          {clientNotes[b.id] || "Click to add private notes about this client…"}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -368,13 +413,23 @@ export default function StylistPortal() {
                     <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
                       <p className="text-xs font-semibold" style={{ color: "var(--accent)" }}>£{(m.net / 1000).toFixed(1)}k</p>
                       <div
-                        className="w-full rounded-t-lg transition-all"
+                        className="w-full rounded-t-lg transition-all cursor-pointer"
                         style={{
                           height: `${(m.net / maxEarning) * 80}px`,
                           background: m.month === "Jun" ? "var(--border)" : "var(--accent)",
-                          opacity: m.month === "Jun" ? 1 : 0.8,
+                          opacity: hoveredMonth === m.month ? 1 : m.month === "Jun" ? 1 : 0.8,
+                          position: "relative",
                         }}
-                      />
+                        onMouseEnter={() => setHoveredMonth(m.month)}
+                        onMouseLeave={() => setHoveredMonth(null)}
+                      >
+                        {hoveredMonth === m.month && (
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap z-10"
+                            style={{ background: "var(--dark)", color: "#fff" }}>
+                            £{m.net.toLocaleString()}
+                          </div>
+                        )}
+                      </div>
                       <p className="text-xs" style={{ color: "var(--faint)" }}>{m.month}</p>
                     </div>
                   ))}
@@ -512,6 +567,95 @@ export default function StylistPortal() {
                   Agreed on joining StyleUp. For questions about these terms, contact{" "}
                   <span style={{ color: "var(--accent)" }}>stylists@styleup.com</span>
                 </p>
+              </div>
+              <div className="card p-5 mt-4">
+                <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>HOW TO INCREASE YOUR AVERAGE BOOKING VALUE</p>
+                <div className="flex flex-col gap-4">
+                  {[
+                    { icon: "📦", title: "Bundle services", body: "Clients who book Shop Together + Online Capsule pay ~30% more per engagement. Offer it as a package." },
+                    { icon: "⭐", title: "Leverage your rating", body: `You're at ${SIMULATED_STYLIST.rating}★ — that earns a price premium. Top stylists at 4.9+ charge 25–35% more than the market average.` },
+                    { icon: "📅", title: "Raise rates on new bookings", body: "Existing clients are grandfathered. Raise your rates by 10–15% every 50 sessions — it signals quality, not greed." },
+                    { icon: "🎯", title: "Specialise and charge for it", body: "Stylists with a declared niche (e.g. 'luxury menswear' or 'sustainable capsule builds') earn more per session than generalists." },
+                  ].map((tip) => (
+                    <div key={tip.title} className="flex items-start gap-3">
+                      <span className="text-xl flex-shrink-0">{tip.icon}</span>
+                      <div>
+                        <p className="font-semibold text-sm mb-0.5">{tip.title}</p>
+                        <p className="text-xs leading-relaxed" style={{ color: "var(--dim)" }}>{tip.body}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Insights ── */}
+          {tab === "insights" && (
+            <div className="fade-up">
+              <h1 className="serif text-2xl font-bold mb-6">Client insights</h1>
+
+              {/* Retention KPIs */}
+              <div className="grid grid-cols-3 gap-3 mb-6">
+                <div className="card p-4">
+                  <p className="text-xs mb-1" style={{ color: "var(--faint)" }}>Total clients</p>
+                  <p className="serif text-3xl font-bold" style={{ color: "var(--accent)" }}>{CLIENT_INSIGHTS.totalClients}</p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-xs mb-1" style={{ color: "var(--faint)" }}>Repeat clients</p>
+                  <p className="serif text-3xl font-bold" style={{ color: "var(--accent)" }}>{CLIENT_INSIGHTS.repeatClients}</p>
+                  <p className="text-xs" style={{ color: "var(--dim)" }}>{CLIENT_INSIGHTS.retentionRate}% retention rate</p>
+                </div>
+                <div className="card p-4">
+                  <p className="text-xs mb-1" style={{ color: "var(--faint)" }}>Avg sessions/client</p>
+                  <p className="serif text-3xl font-bold" style={{ color: "var(--accent)" }}>{CLIENT_INSIGHTS.avgSessionsPerClient}</p>
+                </div>
+              </div>
+
+              {/* Retention bar */}
+              <div className="card p-5 mb-6">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-semibold text-sm">Client retention rate</p>
+                  <p className="text-sm font-bold" style={{ color: "var(--accent)" }}>{CLIENT_INSIGHTS.retentionRate}%</p>
+                </div>
+                <div className="h-3 rounded-full" style={{ background: "var(--border)" }}>
+                  <div className="h-3 rounded-full" style={{ width: `${CLIENT_INSIGHTS.retentionRate}%`, background: "var(--accent)" }} />
+                </div>
+                <p className="text-xs mt-2" style={{ color: "var(--faint)" }}>
+                  Industry average: 45%. You're {CLIENT_INSIGHTS.retentionRate - 45}pp above average.
+                </p>
+              </div>
+
+              {/* Top services bar chart */}
+              <div className="card p-5 mb-6">
+                <p className="text-xs font-semibold mb-4" style={{ color: "var(--faint)" }}>TOP REQUESTED SERVICES</p>
+                {CLIENT_INSIGHTS.topServices.map((s) => {
+                  const pct = (s.count / CLIENT_INSIGHTS.topServices[0].count) * 100;
+                  return (
+                    <div key={s.name} className="mb-3">
+                      <div className="flex items-center justify-between mb-1 text-sm">
+                        <span className="font-medium">{s.name}</span>
+                        <span style={{ color: "var(--faint)" }}>{s.count} sessions · £{s.revenue.toLocaleString()}</span>
+                      </div>
+                      <div className="h-2 rounded-full" style={{ background: "var(--border)" }}>
+                        <div className="h-2 rounded-full transition-all" style={{ width: `${pct}%`, background: "var(--accent)" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Repeat clients */}
+              <div className="card p-5">
+                <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>YOUR MOST LOYAL CLIENTS</p>
+                <div className="flex flex-wrap gap-2">
+                  {CLIENT_INSIGHTS.repeatClientNames.map((name) => (
+                    <span key={name} className="text-xs px-3 py-1.5 rounded-full font-medium" style={{ background: "var(--accent-bg)", color: "var(--accent)" }}>
+                      {name}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs mt-3" style={{ color: "var(--faint)" }}>These clients have booked 2+ sessions with you.</p>
               </div>
             </div>
           )}
