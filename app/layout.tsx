@@ -2,16 +2,17 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Quota — The Autonomous Revenue Agent",
+  title: "ONE — The world's shared page",
   description:
-    "Quota researches prospects, scores intent, writes outreach that sounds like you, and fills your pipeline while you sleep. The first sales hire that costs less than lunch.",
+    "Eight billion people. One page. Every person on Earth gets one post a day — no followers, no badges, no algorithm. The world votes, the best voice rises, and at midnight everyone starts equal again.",
+  openGraph: {
+    title: "ONE — The world's shared page",
+    description:
+      "Every person on Earth gets one post a day. The world votes. At midnight, everyone starts equal again.",
+  },
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>
