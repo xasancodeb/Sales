@@ -25,23 +25,15 @@ jobs:
           node-version: 22
           cache: npm
 
-      # ── Build ONE ──────────────────────────────────────────────────
+      # ── Build ONE (static export → GitHub Pages) ───────────────────
       - run: npm ci
       - run: npm run build
         env:
           NEXT_PUBLIC_BASE_PATH: /Sales
 
-      # ── Build StyleUp ──────────────────────────────────────────────
-      - run: npm ci
-        working-directory: styleup
-      - run: npm run build
-        working-directory: styleup
-        env:
-          NEXT_PUBLIC_BASE_PATH: /Sales/styleup
-
-      # ── Combine into one artifact ──────────────────────────────────
-      # ONE lives at /Sales, StyleUp nested at /Sales/styleup
-      - run: mkdir -p out/styleup && cp -r styleup/out/. out/styleup/
+      # ── StyleUp now deploys to Vercel (needs server for API routes) ─
+      # See styleup/vercel.json and styleup/.env.example for setup.
+      # To preview StyleUp statically, run: cd styleup && npm run build
 
       - uses: actions/configure-pages@v5
         with:

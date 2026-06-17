@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const PROTECTED = ["/dashboard", "/admin", "/booking"];
 
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
   const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
