@@ -103,13 +103,41 @@ function ExploreInner() {
 
       {/* Search + filters */}
       <div className="card p-4 mb-6">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, city, or style…"
-          className="w-full bg-transparent text-base focus:outline-none mb-4 pb-3"
-          style={{ borderBottom: "1px solid var(--border)" }}
-        />
+        <div className="relative mb-4 pb-3" style={{ borderBottom: "1px solid var(--border)" }}>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, city, or style…"
+            className="w-full bg-transparent text-base focus:outline-none pr-8"
+            style={{ border: "none", boxShadow: "none" }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              style={{
+                position: "absolute",
+                right: 0,
+                top: "50%",
+                transform: "translateY(-50%)",
+                background: "var(--border)",
+                border: "none",
+                borderRadius: "50%",
+                width: 20,
+                height: 20,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                color: "var(--dim)",
+                cursor: "pointer",
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
         <div className="flex flex-wrap gap-3">
           {/* Session type */}
           <select
@@ -149,14 +177,15 @@ function ExploreInner() {
             onClick={() => setAvailableToday(!availableToday)}
             className="text-sm rounded-lg px-3 py-2 transition-colors"
             style={{
-              border: `1px solid ${availableToday ? "var(--accent)" : "var(--border)"}`,
-              background: availableToday ? "var(--accent-bg)" : "transparent",
-              color: availableToday ? "var(--accent)" : "var(--dim)",
-              fontWeight: availableToday ? 600 : 400,
+              border: `2px solid ${availableToday ? "var(--accent)" : "var(--border)"}`,
+              background: availableToday ? "var(--accent)" : "transparent",
+              color: availableToday ? "#fff" : "var(--dim)",
+              fontWeight: availableToday ? 700 : 400,
+              transform: availableToday ? "scale(0.97)" : "scale(1)",
             }}
             aria-pressed={availableToday}
           >
-            {availableToday ? "✓ " : ""}Available today
+            {availableToday ? "✓ Available today" : "Available today"}
           </button>
         </div>
       </div>
@@ -231,14 +260,18 @@ function ExploreInner() {
       </div>
 
       {filtered.length === 0 && (
-        <div className="text-center py-16">
-          <p className="text-lg font-semibold mb-2">No stylists match your filters</p>
-          <p className="text-sm mb-4" style={{ color: "var(--dim)" }}>Try broadening your search or changing the session type</p>
+        <div className="text-center py-16 fade-up">
+          <p className="text-4xl mb-4">🔍</p>
+          <p className="text-lg font-semibold mb-2">No stylists match your search</p>
+          <p className="text-sm mb-6 max-w-sm mx-auto" style={{ color: "var(--dim)", lineHeight: 1.6 }}>
+            Try a different city or specialty — we add new stylists every month.
+          </p>
           <button
             onClick={() => { setSearch(""); setSpecialty("All"); setSessionType("all"); setAvailableToday(false); }}
-            className="btn-secondary"
+            className="btn-accent"
+            style={{ padding: "10px 24px", fontSize: 14 }}
           >
-            Clear filters
+            Clear all filters
           </button>
         </div>
       )}

@@ -292,6 +292,7 @@ export default function FittingRoom() {
   const [outfit, setOutfit] = useState<Record<Zone, string>>({ ...DEFAULT_OUTFIT });
 
   const [shared, setShared] = useState(false);
+  const [resetConfirm, setResetConfirm] = useState(false);
 
   // Save outfit state
   const [savedOutfits, setSavedOutfits] = useState<SavedOutfit[]>([]);
@@ -326,6 +327,7 @@ export default function FittingRoom() {
 
   const resetOutfit = () => {
     setOutfit({ ...DEFAULT_OUTFIT });
+    setResetConfirm(false);
   };
 
   const startSaveOutfit = () => {
@@ -461,17 +463,37 @@ export default function FittingRoom() {
                 >
                   {shared ? "Copied ✓" : "Share palette"}
                 </button>
-                <button
-                  onClick={resetOutfit}
-                  className="text-sm px-3 py-2 rounded-lg transition-colors"
-                  style={{
-                    background: "var(--surface)",
-                    color: "var(--dim)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  Reset
-                </button>
+                {resetConfirm ? (
+                  <div className="flex items-center gap-1 rounded-lg px-2" style={{ border: "1px solid var(--border)", background: "var(--surface)" }}>
+                    <span className="text-xs" style={{ color: "var(--dim)", whiteSpace: "nowrap" }}>Reset?</span>
+                    <button
+                      onClick={resetOutfit}
+                      className="text-xs font-semibold px-2 py-1 rounded-md"
+                      style={{ color: "#7B241C", background: "#FDEDEC" }}
+                    >
+                      Yes
+                    </button>
+                    <button
+                      onClick={() => setResetConfirm(false)}
+                      className="text-xs px-2 py-1 rounded-md"
+                      style={{ color: "var(--dim)", background: "transparent" }}
+                    >
+                      No
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setResetConfirm(true)}
+                    className="text-sm px-3 py-2 rounded-lg transition-colors"
+                    style={{
+                      background: "var(--surface)",
+                      color: "var(--dim)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
 
               {/* Save outfit */}
@@ -525,24 +547,40 @@ export default function FittingRoom() {
               <div className="card p-4 mb-4">
                 <p className="text-xs font-semibold mb-3" style={{ color: "var(--faint)" }}>SELECT ZONE TO COLOUR</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {ZONE_LABELS.map((z) => (
-                    <button
-                      key={z.id}
-                      onClick={() => setActiveZone(z.id)}
-                      className="text-left p-3 rounded-xl transition-all"
-                      style={{
-                        border: `2px solid ${activeZone === z.id ? "var(--accent)" : "var(--border)"}`,
-                        background: activeZone === z.id ? "var(--accent-bg)" : "transparent",
-                      }}
-                    >
-                      <div
-                        className="w-6 h-6 rounded-md mb-2"
-                        style={{ background: outfit[z.id], border: "1px solid rgba(0,0,0,0.1)" }}
-                      />
-                      <p className="text-xs font-semibold">{z.label}</p>
-                      <p className="text-xs" style={{ color: "var(--faint)" }}>{z.desc}</p>
-                    </button>
-                  ))}
+                  {ZONE_LABELS.map((z) => {
+                    const isActive = activeZone === z.id;
+                    return (
+                      <button
+                        key={z.id}
+                        onClick={() => setActiveZone(z.id)}
+                        title={z.desc}
+                        aria-label={`${z.label}: ${z.desc}`}
+                        aria-pressed={isActive}
+                        className="text-left p-3 rounded-xl transition-all"
+                        style={{
+                          border: `2px solid ${isActive ? "var(--accent)" : "var(--border)"}`,
+                          background: isActive ? "var(--accent-bg)" : "var(--surface)",
+                          boxShadow: isActive ? "0 0 0 2px rgba(196,146,58,0.15)" : "none",
+                          transform: isActive ? "scale(0.98)" : "scale(1)",
+                        }}
+                      >
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div
+                            className="w-5 h-5 rounded-md flex-shrink-0"
+                            style={{
+                              background: outfit[z.id],
+                              border: isActive ? "2px solid var(--accent)" : "1px solid rgba(0,0,0,0.1)",
+                            }}
+                          />
+                          <p className="text-xs font-semibold" style={{ color: isActive ? "var(--accent)" : "var(--ink)" }}>
+                            {z.label}
+                            {isActive && <span className="ml-1" style={{ fontSize: 8, verticalAlign: "middle" }}>▶</span>}
+                          </p>
+                        </div>
+                        <p className="text-xs" style={{ color: isActive ? "var(--accent)" : "var(--faint)", opacity: 0.85 }}>{z.desc}</p>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

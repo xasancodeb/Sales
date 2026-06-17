@@ -75,7 +75,7 @@ export default function Landing() {
   }, []);
 
   return (
-    <main style={{ minHeight: "100vh" }}>
+    <main className="page-enter" style={{ minHeight: "100vh" }}>
 
       {/* ── Nav ── */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-5xl mx-auto relative">
@@ -125,8 +125,8 @@ export default function Landing() {
       </nav>
 
       {/* ── Hero ── */}
-      <section className="max-w-5xl mx-auto px-6 pt-16 pb-20 text-center">
-        <div className="chip mb-6 mx-auto w-fit">Personal styling · reinvented</div>
+      <section className="max-w-5xl mx-auto px-6 pt-10 pb-16 text-center" style={{ paddingTop: "clamp(2rem, 5vw, 4rem)" }}>
+        <div className="chip chip-pulse mb-6 mx-auto w-fit">Personal styling · reinvented</div>
         <h1 className="serif text-5xl font-bold leading-tight mb-6" style={{ letterSpacing: "-0.03em" }}>
           Your best look,<br />
           <span style={{ color: "var(--accent)" }}>delivered to you.</span>

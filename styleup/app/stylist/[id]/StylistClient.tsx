@@ -61,6 +61,78 @@ function ReviewCard({ review }: { review: Stylist["reviews"][0] }) {
 
 type BookingStep = "idle" | "service" | "datetime" | "notes" | "confirmed";
 
+const BOOKING_STEPS: { key: BookingStep; label: string }[] = [
+  { key: "service",  label: "Service" },
+  { key: "datetime", label: "Date & time" },
+  { key: "notes",    label: "Your notes" },
+  { key: "confirmed", label: "Confirm" },
+];
+
+function BookingProgress({ step }: { step: BookingStep }) {
+  if (step === "idle") return null;
+  const activeIndex = BOOKING_STEPS.findIndex((s) => s.key === step);
+  const progressPct = activeIndex === BOOKING_STEPS.length - 1
+    ? 100
+    : Math.round(((activeIndex) / (BOOKING_STEPS.length - 1)) * 100);
+
+  return (
+    <div className="mb-4">
+      {/* Step labels */}
+      <div className="flex justify-between mb-2">
+        {BOOKING_STEPS.map((s, i) => {
+          const isDone = i < activeIndex;
+          const isActive = i === activeIndex;
+          return (
+            <div key={s.key} className="flex flex-col items-center" style={{ flex: 1 }}>
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: 10,
+                  fontWeight: 700,
+                  marginBottom: 4,
+                  background: isDone
+                    ? "var(--accent)"
+                    : isActive
+                    ? "var(--dark)"
+                    : "var(--border)",
+                  color: isDone || isActive ? "#fff" : "var(--faint)",
+                  transition: "background 0.2s",
+                }}
+              >
+                {isDone ? "✓" : i + 1}
+              </div>
+              <span
+                style={{
+                  fontSize: 9,
+                  fontWeight: isActive ? 700 : 400,
+                  color: isActive ? "var(--ink)" : isDone ? "var(--accent)" : "var(--faint)",
+                  textAlign: "center",
+                  whiteSpace: "nowrap",
+                  letterSpacing: "0.01em",
+                }}
+              >
+                {s.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {/* Progress bar */}
+      <div className="h-1 rounded-full mt-1" style={{ background: "var(--border)" }}>
+        <div
+          className="h-1 rounded-full transition-all"
+          style={{ width: `${progressPct}%`, background: "var(--accent)" }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function StylistClient() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -173,6 +245,7 @@ export default function StylistClient() {
     if (step === "service") {
       return (
         <div className="card p-5">
+          <BookingProgress step={step} />
           <p className="font-semibold mb-4">Choose your session</p>
           <div className="flex flex-col gap-3">
             {stylist.services.map((sv) => {
@@ -201,14 +274,20 @@ export default function StylistClient() {
             })}
           </div>
           <div className="flex gap-3 mt-4">
-            <button className="btn-secondary flex-1" onClick={() => setStep("idle")}>Back</button>
+            <button
+              onClick={() => setStep("idle")}
+              className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              style={{ color: "var(--dim)", background: "transparent", border: "none" }}
+            >
+              ← Back
+            </button>
             <button
               className="btn-primary flex-1"
               disabled={!selectedService}
               onClick={() => setStep("datetime")}
               style={{ opacity: selectedService ? 1 : 0.4 }}
             >
-              Next →
+              Continue →
             </button>
           </div>
         </div>
@@ -218,6 +297,7 @@ export default function StylistClient() {
     if (step === "datetime") {
       return (
         <div className="card p-5">
+          <BookingProgress step={step} />
           <p className="font-semibold mb-4">Pick a date &amp; time</p>
           <p className="text-xs font-semibold mb-2" style={{ color: "var(--dim)" }}>DATE</p>
           <div className="flex gap-2 flex-wrap mb-4">
@@ -267,14 +347,20 @@ export default function StylistClient() {
             </>
           )}
           <div className="flex gap-3">
-            <button className="btn-secondary flex-1" onClick={() => setStep("service")}>Back</button>
+            <button
+              onClick={() => setStep("service")}
+              className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              style={{ color: "var(--dim)", background: "transparent", border: "none" }}
+            >
+              ← Back
+            </button>
             <button
               className="btn-primary flex-1"
               disabled={!selectedDate || !selectedSlot}
               onClick={() => setStep("notes")}
               style={{ opacity: selectedDate && selectedSlot ? 1 : 0.4 }}
             >
-              Next →
+              Continue →
             </button>
           </div>
         </div>
@@ -284,6 +370,7 @@ export default function StylistClient() {
     if (step === "notes") {
       return (
         <div className="card p-5">
+          <BookingProgress step={step} />
           <p className="font-semibold mb-1">Tell {stylist.name.split(" ")[0]} about your goals</p>
           <p className="text-xs mb-4" style={{ color: "var(--faint)" }}>Optional — but the more context they have, the better prepared they&apos;ll be</p>
           <textarea
@@ -300,7 +387,13 @@ export default function StylistClient() {
             <p className="text-sm font-bold mt-1">{selectedService?.currency}{selectedService?.price.toLocaleString()}</p>
           </div>
           <div className="flex gap-3 mt-4">
-            <button className="btn-secondary flex-1" onClick={() => setStep("datetime")}>Back</button>
+            <button
+              onClick={() => setStep("datetime")}
+              className="text-sm font-medium px-4 py-2 rounded-xl transition-colors"
+              style={{ color: "var(--dim)", background: "transparent", border: "none" }}
+            >
+              ← Back
+            </button>
             <button className="btn-accent flex-1" onClick={confirm}>
               Confirm booking
             </button>

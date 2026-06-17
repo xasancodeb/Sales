@@ -429,7 +429,11 @@ export default function Dashboard() {
         </h2>
         {upcoming.length === 0 ? (
           <div className="card p-6 text-center">
-            <p className="text-sm mb-3" style={{ color: "var(--dim)" }}>No upcoming sessions yet.</p>
+            <p className="text-2xl mb-3">✦</p>
+            <p className="font-semibold mb-1">Your next session awaits</p>
+            <p className="text-sm mb-4" style={{ color: "var(--dim)", lineHeight: 1.6 }}>
+              Find a stylist who gets your vision and book your first session.
+            </p>
             <Link href="/explore" className="btn-accent" style={{ padding: "10px 20px", fontSize: 13 }}>
               Browse stylists →
             </Link>
@@ -519,16 +523,22 @@ export default function Dashboard() {
       </div>
 
       {/* Past sessions */}
-      {past.length > 0 && (
-        <section className="mb-8">
-          <h2 className="serif text-xl font-bold mb-4">Past sessions</h2>
+      <section className="mb-8">
+        <h2 className="serif text-xl font-bold mb-4">Past sessions</h2>
+        {past.length === 0 ? (
+          <div className="card p-5 text-center">
+            <p className="text-sm" style={{ color: "var(--dim)", lineHeight: 1.6 }}>
+              Sessions you&apos;ve completed will appear here — each one a step forward in your style journey.
+            </p>
+          </div>
+        ) : (
           <div className="flex flex-col gap-3">
             {past.map((b) => (
               <BookingCard key={b.id} booking={b} onCancel={reload} />
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
       {/* Cancelled */}
       {cancelled.length > 0 && (
